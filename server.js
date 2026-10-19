@@ -110,20 +110,22 @@ function autoPlay(room, g, ver) {
 
 // ---------- lưu / khôi phục phòng ----------
 let saveTimer = null;
+// Gom ghi đĩa tối đa ~1 lần/0.8s (throttle, không debounce: bot đánh liên tục thì debounce sẽ không bao giờ ghi).
 function save() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const data = [...rooms.values()].map((r) => ({
-      code: r.code, hostId: r.hostId, created: r.created, lastActivity: r.lastActivity, settings: r.settings,
-      members: r.members.map((m) => ({ id: m.id, token: m.token, name: m.name, bot: !!m.bot, left: !!m.left })),
-      game: r.game ? { members: r.gameMembers, seed: r.game.seed, actions: r.game.actions } : null,
-    }));
-    try {
-      fs.mkdirSync(path.dirname(DATA), { recursive: true });
-      fs.writeFileSync(DATA + '.tmp', JSON.stringify(data));
-      fs.renameSync(DATA + '.tmp', DATA);
-    } catch (e) { console.error('Không lưu được phòng:', e.message); }
-  }, 800);
+  if (!saveTimer) saveTimer = setTimeout(writeRooms, 800);
+}
+function writeRooms() {
+  clearTimeout(saveTimer); saveTimer = null;
+  const data = [...rooms.values()].map((r) => ({
+    code: r.code, hostId: r.hostId, created: r.created, lastActivity: r.lastActivity, settings: r.settings,
+    members: r.members.map((m) => ({ id: m.id, token: m.token, name: m.name, bot: !!m.bot, left: !!m.left })),
+    game: r.game ? { members: r.gameMembers, seed: r.game.seed, actions: r.game.actions } : null,
+  }));
+  try {
+    fs.mkdirSync(path.dirname(DATA), { recursive: true });
+    fs.writeFileSync(DATA + '.tmp', JSON.stringify(data));
+    fs.renameSync(DATA + '.tmp', DATA);
+  } catch (e) { console.error('Không lưu được phòng:', e.message); }
 }
 function load() {
   let data;
@@ -338,6 +340,8 @@ server.on('error', (e) => {
 });
 process.on('uncaughtException', (e) => console.error('[lỗi chưa bắt]', e));
 process.on('unhandledRejection', (e) => console.error('[promise lỗi]', e));
+// Tắt server (Ctrl+C) thì ghi nốt trạng thái phòng chưa kịp lưu.
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { writeRooms(); process.exit(0); });
 
 load();
 server.listen(PORT, '0.0.0.0', () => {

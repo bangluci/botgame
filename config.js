@@ -7,7 +7,10 @@ const DIR = path.join(__dirname, 'config');
 const CUSTOM = path.join(__dirname, 'custom');
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const EFFECTS = new Set(['bang', 'heal', 'draw', 'steal', 'aoe', 'duel', 'store']);
-const ABILITIES = new Set(['bart', 'blackjack', 'janet', 'gringo', 'jesse', 'jourdonnais', 'kit', 'lucky', 'paul', 'pedro', 'rose', 'sid', 'slab', 'suzy', 'vulture', 'willy']);
+const ABILITIES = new Set(['bart', 'blackjack', 'janet', 'gringo', 'jesse', 'jourdonnais', 'kit', 'lucky', 'paul', 'pedro', 'rose', 'sid', 'slab', 'suzy', 'vulture', 'willy',
+  'pixie', 'bill', 'sean', 'tequila', 'greg', 'herb', 'elena']); // dòng 2: Dodge City
+// Bộ mở rộng -> luật bật nó. Lá/nhân vật có "set" chỉ vào ván khi luật đó bật; "extra": { set: [printings] } thêm bản in của bộ đó.
+const SETS = { dodgecity: 'dodgeCity' };
 const MODS = new Set(['drawSuit', 'reverse', 'noBang', 'drawDelta', 'bangBonus', 'noAbilities', 'beerHeal', 'rangeBonus', 'turnStartDamage', 'turnStartHeal', 'turnStartDraw', 'handcuffs', 'vendetta', 'handLimitDelta', 'missedExtra']);
 
 function readJson(file) {
@@ -88,6 +91,11 @@ function validate(cfg) {
     if (c.range !== undefined && c.range !== 'weapon' && c.range !== 'any' && !isInt(c.range, 1, 10)) throw new Error(`${w}: range phải là "weapon", "any" hoặc số 1…10`);
     if (c.react !== undefined && c.react !== 'bang' && c.react !== 'missed') throw new Error(`${w}: react phải là "bang" hoặc "missed"`);
     if (!Array.isArray(c.printings)) throw new Error(`${w}: cần "printings" (mảng)`);
+    if (c.set !== undefined && !SETS[c.set]) throw new Error(`${w}: set "${c.set}" không có. Các bộ: ${Object.keys(SETS).join(', ')}`);
+    for (const [set, list] of Object.entries(c.extra || {})) {
+      if (!SETS[set] || !Array.isArray(list)) throw new Error(`${w}: extra.${set} phải là mảng printings của một bộ có thật`);
+      expand(list, k);
+    }
     if (c.effect !== undefined) {
       if (!Array.isArray(c.effect)) throw new Error(`${w}: effect phải là mảng`);
       c.effect.forEach((e) => eff(w, e));
@@ -100,6 +108,7 @@ function validate(cfg) {
   }
   for (const [k, c] of Object.entries(cfg.characters)) {
     if (!c.name || !isInt(c.life, 1, 10)) throw new Error(`Nhân vật "${k}" cần "name" và "life" là số nguyên 1…10`);
+    if (c.set !== undefined && !SETS[c.set]) throw new Error(`Nhân vật "${k}": set "${c.set}" không có`);
     for (const a of c.abilities || []) if (!ABILITIES.has(a)) throw new Error(`Nhân vật "${k}": kỹ năng "${a}" không có. Các kỹ năng: ${[...ABILITIES].join(', ')}`);
   }
   for (const [k, e] of Object.entries(cfg.events)) {
@@ -155,6 +164,8 @@ function resolve(settings = {}) {
   };
   validate(cfg);
   for (const d of base.ruleDefs) cfg.rules[d.key] = s.rules[d.key] !== undefined ? s.rules[d.key] : d.value;
+  const sets = Object.keys(SETS).filter((set) => cfg.rules[SETS[set]]);
+  for (const f of ['cards', 'characters']) for (const [k, x] of Object.entries(cfg[f])) if (x.set && !sets.includes(x.set)) delete cfg[f][k];
   for (const k of s.charactersOff) delete cfg.characters[k];
   const eventKeys = Object.keys(cfg.events).filter((k) => !s.eventsOff.includes(k));
   cfg.eventKeys = eventKeys;
@@ -164,7 +175,7 @@ function resolve(settings = {}) {
   cfg.deck = [];
   for (const [key, c] of Object.entries(cfg.cards)) {
     const copies = s.cardCopies[key] !== undefined ? s.cardCopies[key] : 1;
-    const pr = expand(c.printings, key);
+    const pr = [c.printings, ...sets.map((set) => (c.extra || {})[set] || [])].flatMap((list) => expand(list, key));
     for (let i = 0; i < copies; i++) for (const p of pr) cfg.deck.push({ key, suit: p.suit, rank: p.rank });
     if (cfg.deck.length > 500) throw new Error('Bộ bài quá lớn (tối đa 500 lá)');
   }
@@ -178,8 +189,10 @@ function describe() {
   validate({ ...base, roles: base.roles });
   return {
     rules: base.ruleDefs,
-    cards: Object.entries(base.cards).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🂠', kind: c.kind, desc: c.desc || '', count: expand(c.printings, key).length })),
-    characters: Object.entries(base.characters).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🙂', life: c.life, desc: c.desc || '' })),
+    cards: Object.entries(base.cards).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🂠', kind: c.kind, desc: c.desc || '', set: c.set || null, count: expand(c.printings, key).length,
+      extra: Object.fromEntries(Object.entries(c.extra || {}).map(([set, list]) => [set, expand(list, key).length])) })),
+    characters: Object.entries(base.characters).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🙂', life: c.life, desc: c.desc || '', set: c.set || null })),
+    sets: SETS,
     events: Object.entries(base.events).map(([key, e]) => ({ key, name: e.name, icon: e.icon || '🎴', desc: e.desc || '' })),
     presets: base.presets,
     abilities: [...ABILITIES], effects: [...EFFECTS], mods: [...MODS],

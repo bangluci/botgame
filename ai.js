@@ -2,14 +2,14 @@
 // AI cho bot BANG!: chỉ đọc view công khai (engine.viewFor), suy luận vai qua view.last (ai đánh ai).
 // rank(view, mem) → danh sách action theo ưu tiên; decide() lấy cái hợp lệ đầu tiên.
 
-const VAL = { missed: 9, beer: 8, bang: 7, barrel: 7, wellsfargo: 7, stagecoach: 6, panic: 6, catbalou: 6, duel: 5, gatling: 5, indians: 5, mustang: 5, winchester: 4, jail: 4, scope: 4, generalstore: 4, saloon: 3, volcanic: 3, schofield: 3, remington: 3, carabine: 3, dynamite: 0 };
+const VAL = { missed: 9, beer: 8, bang: 7, barrel: 7, wellsfargo: 7, stagecoach: 6, panic: 6, catbalou: 6, duel: 5, gatling: 5, indians: 5, mustang: 5, hideout: 5, binocular: 4, winchester: 4, jail: 4, scope: 4, generalstore: 4, saloon: 3, volcanic: 3, schofield: 3, remington: 3, carabine: 3, dynamite: 0 };
 const GUN = { volcanic: 1, schofield: 2, remington: 3, carabine: 4, winchester: 5 };
-const GOOD_EQUIP = ['barrel', 'mustang', 'scope'];
+const GOOD_EQUIP = ['barrel', 'mustang', 'scope', 'binocular', 'hideout'];
 const DRAW = ['wellsfargo', 'stagecoach', 'generalstore'];
 const AOE = ['gatling', 'indians'];
 // ponytail: số Outlaw theo config/roles.json mặc định — view không lộ bảng vai; lệch nếu phòng tự sửa roles
 const OUTLAWS = { 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3, 8: 3, 9: 3, 10: 4 };
-const CHAR_BONUS = { willy: 3, slab: 3, jourdonnais: 2, bart: 2, sid: 2, lucky: 2, paul: 2, suzy: 1, jesse: 1, kit: 1, blackjack: 1, rose: 1, janet: 1, gringo: 1, vulture: 1, pedro: 1 };
+const CHAR_BONUS = { willy: 3, slab: 3, jourdonnais: 2, bart: 2, sid: 2, lucky: 2, paul: 2, suzy: 1, jesse: 1, kit: 1, blackjack: 1, rose: 1, janet: 1, gringo: 1, vulture: 1, pedro: 1, elena: 3, pixie: 2, sean: 1, tequila: 1, greg: 1, herb: 1, bill: 1 };
 const SUITS = ['H', 'D', 'C', 'S'];
 
 const newMemory = () => ({ sus: {}, seen: null });
@@ -98,7 +98,9 @@ function rank(v, mem) {
   switch (pr.type) {
     case 'play': return playList(v, mem, self, others, sc);
     case 'respond': {
-      const ok = (c) => { const r = (D[c.key] || {}).react; return r === pr.kind || (v.janet && (r === 'bang' || r === 'missed')); };
+      // engine gửi sẵn lá đỡ được (me.usable) — bao cả Janet, Elena Fuente và nhân vật tự thêm
+      const usable = new Set(me.usable || []);
+      const ok = (c) => { const r = (D[c.key] || {}).react; return usable.has(c.id) || r === pr.kind || (v.janet && (r === 'bang' || r === 'missed')); };
       const exact = (c) => ((D[c.key] || {}).react === pr.kind ? 0 : 1);
       return [...lo.filter(ok).sort((a, b) => exact(a) - exact(b)).map((c) => ({ type: 'respond', card: c.id })), { type: 'pass' }];
     }

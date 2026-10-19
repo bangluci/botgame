@@ -22,5 +22,9 @@
   {
     "id": "chaos", "name": "Hỗn chiến sự kiện", "desc": "Sự kiện + rút 3 + chọn nhân vật.",
     "settings": { "rules": { "eventsOn": true, "drawPerTurn": 3, "charChoices": 3, "bangPerTurn": 2 } }
+  },
+  {
+    "id": "dodgecity", "name": "Dodge City", "desc": "Bản cơ bản + 7 nhân vật và 18 lá của bộ mở rộng Dodge City.",
+    "settings": { "rules": { "dodgeCity": true } }
   }
 ]

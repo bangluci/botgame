@@ -14,5 +14,12 @@
   "slab": { "name": "Slab the Killer", "life": 4, "icon": "💪", "abilities": ["slab"], "desc": "BANG! của anh ta cần 2 Missed! để né." },
   "suzy": { "name": "Suzy Lafayette", "life": 4, "icon": "💃", "abilities": ["suzy"], "desc": "Hết bài trên tay là rút ngay 1 lá." },
   "vulture": { "name": "Vulture Sam", "life": 4, "icon": "🦅", "abilities": ["vulture"], "desc": "Ai chết, anh ta lấy hết bài của người đó." },
-  "willy": { "name": "Willy the Kid", "life": 4, "icon": "👦", "abilities": ["willy"], "desc": "Được chơi BANG! không giới hạn." }
+  "willy": { "name": "Willy the Kid", "life": 4, "icon": "👦", "abilities": ["willy"], "desc": "Được chơi BANG! không giới hạn." },
+  "pixie": { "name": "Pixie Pete", "life": 3, "icon": "🧚", "set": "dodgecity", "abilities": ["pixie"], "desc": "Đầu lượt rút 3 lá thay vì 2." },
+  "bill": { "name": "Bill Noface", "life": 4, "icon": "👤", "set": "dodgecity", "abilities": ["bill"], "desc": "Đầu lượt rút 1 lá, cộng thêm 1 lá cho mỗi máu đã mất." },
+  "sean": { "name": "Sean Mallory", "life": 3, "icon": "🧳", "set": "dodgecity", "abilities": ["sean"], "desc": "Cuối lượt được giữ tới 10 lá trên tay." },
+  "tequila": { "name": "Tequila Joe", "life": 4, "icon": "🌵", "set": "dodgecity", "abilities": ["tequila"], "desc": "Mỗi lá Beer hồi 2 máu thay vì 1 (chỉ Beer)." },
+  "greg": { "name": "Greg Digger", "life": 4, "icon": "⛏️", "set": "dodgecity", "abilities": ["greg"], "desc": "Mỗi khi có người khác bị loại, hồi 2 máu." },
+  "herb": { "name": "Herb Hunter", "life": 4, "icon": "🦌", "set": "dodgecity", "abilities": ["herb"], "desc": "Mỗi khi có người khác bị loại, rút thêm 2 lá." },
+  "elena": { "name": "Elena Fuente", "life": 3, "icon": "🌺", "set": "dodgecity", "abilities": ["elena"], "desc": "Dùng được bất kỳ lá nào trên tay như Missed!." }
 }

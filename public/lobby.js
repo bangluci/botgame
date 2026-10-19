@@ -124,15 +124,25 @@ function rulesTab(s, dis) {
     return `<label class="rule ${changed ? 'changed' : ''}"><span>${esc(d.label)}</span>${inp}</label>`;
   }).join('')}</div>`).join('');
 }
+// Bộ mở rộng đang bật? (luật tương ứng trong settings, hoặc giá trị mặc định)
+const SET_NAME = { dodgecity: 'Dodge City' };
+function setOn(s, set) {
+  if (!set) return true;
+  const key = st.meta.sets[set], d = st.meta.rules.find((r) => r.key === key);
+  return s.rules[key] !== undefined ? !!s.rules[key] : !!(d && d.value);
+}
+const setTag = (set) => (set ? `<span class="set-tag">${esc(SET_NAME[set] || set)}</span>` : '');
+const printed = (s, c) => (setOn(s, c.set) ? c.count + Object.entries(c.extra || {}).reduce((t, [set, n]) => t + (setOn(s, set) ? n : 0), 0) : 0);
+
 function cardsTab(s, dis) {
-  const total = st.meta.cards.reduce((t, c) => t + c.count * (s.cardCopies[c.key] !== undefined ? s.cardCopies[c.key] : 1), 0);
+  const total = st.meta.cards.reduce((t, c) => t + printed(s, c) * (s.cardCopies[c.key] !== undefined ? s.cardCopies[c.key] : 1), 0);
   return `<p class="hint">Số bản sao của từng loại lá (0 = bỏ khỏi bộ, 2 = nhân đôi). Tổng bộ bài: <b>${total}</b> lá.</p><div class="cardrows">${st.meta.cards.map((c) => {
     const n = s.cardCopies[c.key] !== undefined ? s.cardCopies[c.key] : 1;
-    return `<div class="cardrow ${n ? '' : 'off'}"><span class="cr-icon ${c.kind === 'equip' ? 'k-equip' : ''}">${esc(c.icon)}</span><span class="cr-name"><b>${esc(c.name)}</b><small>×${c.count} · ${esc(c.desc)}</small></span>
+    return `<div class="cardrow ${n && setOn(s, c.set) ? '' : 'off'}"><span class="cr-icon ${c.kind === 'equip' ? 'k-equip' : ''}">${esc(c.icon)}</span><span class="cr-name"><b>${esc(c.name)}${setTag(c.set)}</b><small>×${printed(s, c)} · ${esc(c.desc)}</small></span>
       <span class="stepper"><button class="icon-btn" data-a="copies" data-k="${esc(c.key)}" data-d="-1" ${dis || (n <= 0 ? 'disabled' : '')} aria-label="Bớt">−</button><output>${n}</output><button class="icon-btn" data-a="copies" data-k="${esc(c.key)}" data-d="1" ${dis || (n >= 6 ? 'disabled' : '')} aria-label="Thêm">+</button></span></div>`;
   }).join('')}</div>`;
 }
-const toggles = (list, off, a, dis, sub) => `<div class="chips">${list.map((x) => `<button type="button" class="chip ${off.includes(x.key) ? 'off' : ''}" data-a="${a}" data-k="${esc(x.key)}" ${dis} aria-pressed="${!off.includes(x.key)}"><span aria-hidden="true">${esc(x.icon)}</span><b>${esc(x.name)}</b>${sub(x)}</button>`).join('')}</div>`;
+const toggles = (list, off, a, dis, sub, s) => `<div class="chips">${list.map((x) => { const out = off.includes(x.key) || (s && !setOn(s, x.set)); return `<button type="button" class="chip ${out ? 'off' : ''}" data-a="${a}" data-k="${esc(x.key)}" ${dis} aria-pressed="${!out}"><span aria-hidden="true">${esc(x.icon)}</span><b>${esc(x.name)}${setTag(x.set)}</b>${sub(x)}</button>`; }).join('')}</div>`;
 
 function settingsHtml(host) {
   const s = settings(), dis = host ? '' : 'disabled', m = st.meta, tab = st.ui.tab;
@@ -140,7 +150,7 @@ function settingsHtml(host) {
   let body;
   if (tab === 'rules') body = rulesTab(s, dis);
   else if (tab === 'cards') body = cardsTab(s, dis);
-  else if (tab === 'chars') body = `<p class="hint">Bấm để bật/tắt nhân vật trong ván này.</p>${toggles(m.characters, s.charactersOff, 'tchar', dis, (c) => `<small>${c.life}❤ · ${esc(c.desc)}</small>`)}`;
+  else if (tab === 'chars') body = `<p class="hint">Bấm để bật/tắt nhân vật trong ván này. Nhân vật có nhãn bộ mở rộng chỉ vào ván khi bộ đó được bật ở tab “Luật”.</p>${toggles(m.characters, s.charactersOff, 'tchar', dis, (c) => `<small>${c.life}❤ · ${esc(c.desc)}</small>`, s)}`;
   else if (tab === 'events') {
     const on = s.rules.eventsOn !== undefined ? s.rules.eventsOn : m.rules.find((r) => r.key === 'eventsOn').value;
     body = `<p class="hint">${on ? 'Sự kiện <b>đang bật</b>' : 'Sự kiện đang <b>tắt</b> — bật ở tab “Luật”'}. Từ vòng 2, đầu lượt Cảnh sát trưởng lật 1 lá; High Noon nằm cuối chồng.</p>${toggles(m.events, s.eventsOff, 'tevent', dis, (e) => `<small>${esc(e.desc)}</small>`)}`;

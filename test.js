@@ -109,6 +109,8 @@ const variants = [
   meta.presets.find((p) => p.id === 'gunfight').settings,
   { rules: { eventsOn: true }, cardCopies: { dynamite: 3, jail: 3, panic: 2 } },
   { rules: { handLimitBonus: -2 }, charactersOff: meta.characters.map((c) => c.key).filter((k) => !['suzy', 'sid', 'vulture', 'janet', 'slab', 'lucky', 'kit', 'jesse', 'pedro', 'bart'].includes(k)) },
+  meta.presets.find((p) => p.id === 'dodgecity').settings,
+  { rules: { dodgeCity: true, eventsOn: true, handLimitBonus: -2, charChoices: 2 }, charactersOff: meta.characters.filter((c) => !c.set).map((c) => c.key).slice(0, 10) }, // dồn về nhân vật Dodge City
   { // cơ chế tuỳ chỉnh: lá nhiều hiệu ứng, nhân vật mới, sự kiện mới, chế độ không Sheriff
     rules: { eventsOn: true },
     override: {

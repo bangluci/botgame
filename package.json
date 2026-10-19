@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test.js 300",
+    "test": "node test-scenarios.js && node test.js 300",
     "test:ai": "node test.js ai 200"
   },
   "engines": {

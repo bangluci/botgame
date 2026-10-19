@@ -53,11 +53,18 @@ function bangLimit(g, p) {
   if (!g.rules.bangPerTurn || ab(g, p, 'willy') || p.table.some((c) => (cdef(g, c).equip || {}).unlimitedBang)) return Infinity;
   return g.rules.bangPerTurn + (g.mods.bangBonus || 0);
 }
-const handLimit = (g, p) => (g.rules.handLimitUnlimited ? Infinity : Math.max(0, p.life + g.rules.handLimitBonus + (g.mods.handLimitDelta || 0)));
+function handLimit(g, p) {
+  if (g.rules.handLimitUnlimited) return Infinity;
+  const lim = Math.max(0, p.life + g.rules.handLimitBonus + (g.mods.handLimitDelta || 0));
+  return ab(g, p, 'sean') ? Math.max(lim, 10) : lim; // Sean Mallory giữ được tới 10 lá
+}
 const beerBlocked = (g) => g.rules.beerDisabledAt > 0 && alive(g).length <= g.rules.beerDisabledAt;
 // Beer hồi bao nhiêu (sự kiện có thể đổi); 0 khi bị vô hiệu vì còn ít người.
-const beerAmount = (g, e) => (beerBlocked(g) ? 0 : g.mods.beerHeal !== undefined ? g.mods.beerHeal : (e && e.amount) || 1);
-const beersFor = (g, p) => (beerAmount(g) > 0 ? p.hand.filter((c) => cdef(g, c).isBeer) : []);
+function beerAmount(g, e, p) {
+  const base = beerBlocked(g) ? 0 : g.mods.beerHeal !== undefined ? g.mods.beerHeal : (e && e.amount) || 1;
+  return base > 0 && p && ab(g, p, 'tequila') ? base + 1 : base; // Tequila Joe: Beer hồi thêm 1
+}
+const beersFor = (g, p) => (beerAmount(g, null, p) > 0 ? p.hand.filter((c) => cdef(g, c).isBeer) : []);
 
 function popDeck(g) {
   if (!g.deck.length) {
@@ -124,7 +131,7 @@ function* dying(g, t, src) {
   while (t.life <= 0) {
     const canSid = ab(g, t, 'sid') && t.hand.length >= 2;
     if (!beersFor(g, t).length && !canSid) break;
-    const need = Math.ceil((1 - t.life) / Math.max(1, beerAmount(g)));
+    const need = Math.ceil((1 - t.life) / Math.max(1, beerAmount(g, null, t)));
     const a = yield prompt(t, 'dying', { text: `${t.name} sắp chết! Cần ${need} Beer để cứu.`, pub: { need } }, (act) => {
       if (act.type === 'pass') return;
       if (act.type === 'beer') { if (!beersFor(g, t).some((c) => c.id === act.card)) throw new Error('Hãy chọn 1 Beer trong tay'); return; }
@@ -133,7 +140,7 @@ function* dying(g, t, src) {
     });
     if (a.type === 'pass') break;
     if (a.type === 'beer') {
-      const c = takeHand(g, t, a.card); g.discard.push(c); heal(g, t, beerAmount(g));
+      const c = takeHand(g, t, a.card); g.discard.push(c); heal(g, t, beerAmount(g, null, t));
       say(g, `🍺 ${t.name} uống Beer để cứu mạng → ${t.life}/${t.maxLife}`);
     } else sidDiscard(g, t, a);
   }
@@ -165,6 +172,11 @@ function* die(g, t, src) {
       say(g, `${src.name} (Cảnh sát trưởng) lỡ giết Deputy nên bỏ hết bài!`);
     }
   }
+  // Greg Digger hồi 2 máu, Herb Hunter rút 2 lá mỗi khi có người khác bị loại
+  for (const q of alive(g)) {
+    if (ab(g, q, 'greg')) { const got = heal(g, q, 2); if (got) say(g, `⛏️ ${q.name} hồi ${got} máu (Greg Digger).`); }
+    if (ab(g, q, 'herb')) { const d = drawCards(g, q, 2); if (d.length) say(g, `🦌 ${q.name} rút ${d.length} lá (Herb Hunter).`); }
+  }
   checkWin(g);
 }
 const ROLE_VI = { sheriff: 'Cảnh sát trưởng', deputy: 'Phó cảnh sát', outlaw: 'Kẻ ngoài vòng pháp luật', renegade: 'Kẻ phản bội' };
@@ -186,6 +198,7 @@ function checkWin(g) {
 
 // ---------- đỡ đòn ----------
 function respondCards(g, p, kind) {
+  if (kind === 'missed' && ab(g, p, 'elena')) return p.hand.slice(); // Elena Fuente: lá nào cũng dùng như Missed!
   return p.hand.filter((c) => {
     const r = cdef(g, c).react;
     return r === kind || (ab(g, p, 'janet') && (r === 'bang' || r === 'missed') && (kind === 'bang' || kind === 'missed'));
@@ -289,7 +302,7 @@ function* runEffect(g, p, e, plan) {
     case 'heal': {
       const targets = e.who === 'all' ? [p, ...othersFrom(g, p)] : [p];
       // Beer đầy máu / còn 2 người vẫn chơi được, chỉ là không hồi (FAQ Q16, Q25)
-      const amt = d.isBeer ? beerAmount(g, e) : e.amount || 1;
+      const amt = d.isBeer ? beerAmount(g, e, p) : e.amount || 1;
       for (const t of targets) if (t.alive) { const got = heal(g, t, amt); if (got || t === p) say(g, `❤️ ${t.name} hồi ${got} máu → ${t.life}/${t.maxLife}`); }
       break;
     }
@@ -361,7 +374,10 @@ const TARGETED = new Set(['bang', 'duel', 'steal']);
 
 // ---------- lượt chơi ----------
 function* drawPhase(g, p) {
-  const n = Math.max(0, g.rules.drawPerTurn + (g.mods.drawDelta || 0));
+  let n = g.rules.drawPerTurn + (g.mods.drawDelta || 0);
+  if (ab(g, p, 'pixie')) n += 1; // Pixie Pete: rút 3 thay vì 2
+  if (ab(g, p, 'bill')) n += p.maxLife - p.life - 1; // Bill Noface: 1 lá + 1 lá cho mỗi máu đã mất
+  n = Math.max(0, n);
   if (!n) { say(g, `${p.name} không được rút bài.`); return; }
   let got = 0;
   if (ab(g, p, 'jesse')) {

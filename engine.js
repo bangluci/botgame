@@ -5,8 +5,13 @@ const { resolve, RANKS } = require('./config');
 const OVER = { over: true };
 const SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
 const SUIT_VI = { S: '♠ Bích', H: '♥ Cơ', D: '♦ Rô', C: '♣ Chuồn' };
-const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const rnd = (a) => a[Math.floor(Math.random() * a.length)];
+// PRNG có seed (mulberry32): cùng seed + cùng chuỗi action => ván y hệt, nhờ đó server dựng lại ván sau khi khởi động lại.
+function makeRng(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const shuffle = (a, r) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rnd = (g, a) => a[Math.floor(g.rng() * a.length)];
 
 // ---------- tiện ích ----------
 const cdef = (g, c) => g.cfg.cards[c.key];
@@ -27,8 +32,9 @@ function nextAlive(g, p, dir = 1) {
 }
 function othersFrom(g, p) {
   const out = []; const seen = new Set([p]);
-  let q = nextAlive(g, p, dirOf(g));
-  while (!seen.has(q)) { seen.add(q); out.push(q); q = nextAlive(g, q, dirOf(g)); }
+  // hiệu ứng lá luôn đi theo chiều kim đồng hồ, kể cả khi Gold Rush đảo thứ tự lượt
+  let q = nextAlive(g, p, 1);
+  while (!seen.has(q)) { seen.add(q); out.push(q); q = nextAlive(g, q, 1); }
   return out;
 }
 function rawDist(g, a, b) {
@@ -49,12 +55,15 @@ function bangLimit(g, p) {
 }
 const handLimit = (g, p) => (g.rules.handLimitUnlimited ? Infinity : Math.max(0, p.life + g.rules.handLimitBonus + (g.mods.handLimitDelta || 0)));
 const beerBlocked = (g) => g.rules.beerDisabledAt > 0 && alive(g).length <= g.rules.beerDisabledAt;
+// Beer hồi bao nhiêu (sự kiện có thể đổi); 0 khi bị vô hiệu vì còn ít người.
+const beerAmount = (g, e) => (beerBlocked(g) ? 0 : g.mods.beerHeal !== undefined ? g.mods.beerHeal : (e && e.amount) || 1);
+const beersFor = (g, p) => (beerAmount(g) > 0 ? p.hand.filter((c) => cdef(g, c).isBeer) : []);
 
 function popDeck(g) {
   if (!g.deck.length) {
     if (g.discard.length <= 1) return null;
     const top = g.discard.pop();
-    g.deck = shuffle(g.discard); g.discard = [top];
+    g.deck = shuffle(g.discard, g.rng); g.discard = [top];
     say(g, '♻️ Xáo lại chồng bài bỏ thành chồng rút.');
   }
   return g.deck.pop() || null;
@@ -64,13 +73,15 @@ function drawCards(g, p, n) {
   for (let i = 0; i < n; i++) { const c = popDeck(g); if (!c) break; p.hand.push(c); got.push(c); }
   return got;
 }
-function takeHand(g, p, id) {
+function pull(p, id) {
   const i = p.hand.findIndex((c) => c.id === id);
   if (i < 0) throw new Error('Không có lá bài đó');
-  const [c] = p.hand.splice(i, 1);
-  if (!p.hand.length && p.alive && ab(g, p, 'suzy')) { const d = drawCards(g, p, 1); if (d.length) say(g, `${p.name} hết bài nên rút 1 lá (Suzy).`); }
-  return c;
+  return p.hand.splice(i, 1)[0];
 }
+function suzy(g, p) {
+  if (!p.hand.length && p.alive && ab(g, p, 'suzy')) { const d = drawCards(g, p, 1); if (d.length) say(g, `${p.name} hết bài nên rút 1 lá (Suzy).`); }
+}
+function takeHand(g, p, id) { const c = pull(p, id); suzy(g, p); return c; }
 function takeTable(p, id) {
   const i = p.table.findIndex((c) => c.id === id);
   if (i < 0) throw new Error('Không có lá bài đó');
@@ -104,26 +115,25 @@ function* damage(g, t, amount, src, why) {
   if (t.alive) {
     if (ab(g, t, 'bart')) { const d = drawCards(g, t, amount); if (d.length) say(g, `${t.name} rút ${d.length} lá (Bart).`); }
     if (ab(g, t, 'gringo') && src && src !== t && src.alive && src.hand.length) {
-      for (let i = 0; i < amount && src.hand.length; i++) { const c = takeHand(g, src, rnd(src.hand).id); t.hand.push(c); }
+      for (let i = 0; i < amount && src.hand.length; i++) { const c = takeHand(g, src, rnd(g, src.hand).id); t.hand.push(c); }
       say(g, `${t.name} lấy bài từ tay ${src.name} (El Gringo).`);
     }
   }
 }
 function* dying(g, t, src) {
   while (t.life <= 0) {
-    const beers = beerBlocked(g) ? [] : t.hand.filter((c) => cdef(g, c).isBeer);
     const canSid = ab(g, t, 'sid') && t.hand.length >= 2;
-    if (!beers.length && !canSid) break;
-    const need = 1 - t.life;
+    if (!beersFor(g, t).length && !canSid) break;
+    const need = Math.ceil((1 - t.life) / Math.max(1, beerAmount(g)));
     const a = yield prompt(t, 'dying', { text: `${t.name} sắp chết! Cần ${need} Beer để cứu.`, pub: { need } }, (act) => {
       if (act.type === 'pass') return;
-      if (act.type === 'beer') { if (!beers.some((c) => c.id === act.card)) throw new Error('Hãy chọn 1 Beer trong tay'); return; }
+      if (act.type === 'beer') { if (!beersFor(g, t).some((c) => c.id === act.card)) throw new Error('Hãy chọn 1 Beer trong tay'); return; }
       if (act.type === 'sid') { checkSid(g, t, act); return; }
       throw new Error('Hành động không hợp lệ');
     });
     if (a.type === 'pass') break;
     if (a.type === 'beer') {
-      const c = takeHand(g, t, a.card); g.discard.push(c); heal(g, t, 1);
+      const c = takeHand(g, t, a.card); g.discard.push(c); heal(g, t, beerAmount(g));
       say(g, `🍺 ${t.name} uống Beer để cứu mạng → ${t.life}/${t.maxLife}`);
     } else sidDiscard(g, t, a);
   }
@@ -142,6 +152,12 @@ function sidDiscard(g, p, act) {
 function* die(g, t, src) {
   t.alive = false; t.life = Math.min(0, t.life);
   say(g, `☠️ ${t.name} (${g.cfg.characters[t.char].name}) bị loại! Vai trò: ${ROLE_VI[t.role]}.`);
+  if (g.first === t) g.first = nextAlive(g, t, 1); // giữ mốc "vòng" khi người mở vòng chết (chế độ không Sheriff)
+  // Vulture Sam nhặt bài trước, rồi mới tới thưởng/phạt (FAQ chính thức Q18)
+  const loot = t.hand.concat(t.table); t.hand = []; t.table = [];
+  const vul = g.players.find((q) => q.alive && q !== t && ab(g, q, 'vulture'));
+  if (vul && loot.length) { vul.hand.push(...loot); say(g, `🦅 ${vul.name} nhặt ${loot.length} lá của ${t.name} (Vulture Sam).`); }
+  else g.discard.push(...loot);
   if (src && src !== t && src.alive) {
     if (t.role === 'outlaw' && g.rules.rewardOutlawKill) { drawCards(g, src, g.rules.rewardOutlawKill); say(g, `${src.name} hạ Outlaw và rút ${g.rules.rewardOutlawKill} lá.`); }
     if (src.role === 'sheriff' && t.role === 'deputy' && g.rules.sheriffPenalty) {
@@ -149,10 +165,6 @@ function* die(g, t, src) {
       say(g, `${src.name} (Cảnh sát trưởng) lỡ giết Deputy nên bỏ hết bài!`);
     }
   }
-  const loot = t.hand.concat(t.table); t.hand = []; t.table = [];
-  const vul = g.players.find((q) => q.alive && q !== t && ab(g, q, 'vulture'));
-  if (vul && loot.length) { vul.hand.push(...loot); say(g, `🦅 ${vul.name} nhặt ${loot.length} lá của ${t.name} (Vulture Sam).`); }
-  else g.discard.push(...loot);
   checkWin(g);
 }
 const ROLE_VI = { sheriff: 'Cảnh sát trưởng', deputy: 'Phó cảnh sát', outlaw: 'Kẻ ngoài vòng pháp luật', renegade: 'Kẻ phản bội' };
@@ -165,7 +177,7 @@ function checkWin(g) {
     else if (!al.some((p) => p.role === 'outlaw' || p.role === 'renegade')) team = 'sheriff';
   } else if (al.length <= 1) team = 'ffa';
   if (!team) return;
-  const inTeam = (p) => (team === 'sheriff' ? p.role === 'sheriff' || p.role === 'deputy' : team === 'ffa' ? p.alive : p.role === team);
+  const inTeam = (p) => (team === 'sheriff' ? p.role === 'sheriff' || p.role === 'deputy' : team === 'ffa' || team === 'renegade' ? p.alive && (team === 'ffa' || p.role === team) : p.role === team);
   const names = { sheriff: 'Cảnh sát trưởng & Phó cảnh sát', outlaw: 'Kẻ ngoài vòng pháp luật', renegade: 'Kẻ phản bội', ffa: 'Người sống sót cuối cùng' };
   g.winner = { team, text: `${names[team]} thắng!`, players: g.players.filter(inTeam).map((p) => p.id) };
   say(g, `🏆 ${g.winner.text}`);
@@ -189,11 +201,11 @@ function* defend(g, src, t, kind, { need = 1, barrel = false, why = '' } = {}) {
   }
   while (need > 0 && t.alive) {
     const cs = respondCards(g, t, kind);
-    if (!cs.length) break;
+    if (cs.length < need) break; // không đủ lá để đỡ hết (vd BANG! của Slab) thì khỏi phí lá
     const what = kind === 'missed' ? 'Missed!' : 'BANG!';
     const a = yield prompt(t, 'respond', { text: `${src ? src.name : 'Sự kiện'} tấn công ${t.name} (${why}) — đỡ bằng ${what}${need > 1 ? ` (cần ${need})` : ''}?`, pub: { kind, from: src ? src.id : null, need } }, (act) => {
       if (act.type === 'pass') return;
-      if (act.type !== 'respond' || !cs.some((c) => c.id === act.card)) throw new Error(`Hãy chọn 1 lá ${what} trong tay hoặc bấm "Chịu đòn"`);
+      if (act.type !== 'respond' || !respondCards(g, t, kind).some((c) => c.id === act.card)) throw new Error(`Hãy chọn 1 lá ${what} trong tay hoặc bấm "Chịu đòn"`);
     });
     if (a.type === 'pass') break;
     const c = takeHand(g, t, a.card); g.discard.push(c); need--;
@@ -214,7 +226,8 @@ function* duel(g, src, tgt) {
     if (!ok || !cur.alive) break;
     [cur, other] = [other, cur];
   }
-  if (cur.alive) yield* damage(g, cur, 1, other, 'Duel');
+  // người chơi lá Duel luôn là "thủ phạm" (FAQ Q21/Q23): ảnh hưởng El Gringo, thưởng/phạt khi giết
+  if (cur.alive) yield* damage(g, cur, 1, src, 'Duel');
 }
 
 // ---------- chơi bài ----------
@@ -234,10 +247,6 @@ function planPlay(g, p, a) {
   if (eff.some((e) => e.type === 'bang')) {
     if (g.mods.noBang) throw new Error('Sự kiện đang cấm BANG!');
     if (p.bangs >= bangLimit(g, p)) throw new Error(`Mỗi lượt chỉ được bắn ${bangLimit(g, p)} BANG!`);
-  }
-  if (d.isBeer) {
-    if (p.life >= p.maxLife) throw new Error('Bạn đang đầy máu');
-    if (beerBlocked(g)) throw new Error(`Chỉ còn ${alive(g).length} người nên Beer vô hiệu`);
   }
   if (d.kind === 'equip' && !d.equip.weapon && !d.target && p.table.some((c) => c.key === card.key)) throw new Error('Bạn đã có lá này trên bàn');
   if (d.target === 'other') {
@@ -279,15 +288,16 @@ function* runEffect(g, p, e, plan) {
     case 'bang': p.bangs++; yield* bangAttack(g, p, plan.target); break;
     case 'heal': {
       const targets = e.who === 'all' ? [p, ...othersFrom(g, p)] : [p];
-      const amt = d.isBeer && g.mods.beerHeal !== undefined ? g.mods.beerHeal : e.amount || 1;
+      // Beer đầy máu / còn 2 người vẫn chơi được, chỉ là không hồi (FAQ Q16, Q25)
+      const amt = d.isBeer ? beerAmount(g, e) : e.amount || 1;
       for (const t of targets) if (t.alive) { const got = heal(g, t, amt); if (got || t === p) say(g, `❤️ ${t.name} hồi ${got} máu → ${t.life}/${t.maxLife}`); }
       break;
     }
     case 'draw': { const got = drawCards(g, p, e.n || 1); say(g, `${p.name} rút ${got.length} lá.`); break; }
     case 'steal': {
       const t = plan.target; let c;
-      if (plan.zone === 'table') c = takeTable(t, plan.cardId);
-      else c = takeHand(g, t, rnd(t.hand).id);
+      if (plan.zone === 'table') { if (!t.table.some((x) => x.id === plan.cardId)) break; c = takeTable(t, plan.cardId); }
+      else { if (!t.hand.length) break; c = takeHand(g, t, rnd(g, t.hand).id); }
       if (e.mode === 'take') {
         p.hand.push(c);
         say(g, `🫳 ${p.name} lấy ${plan.zone === 'table' ? cname(g, c) : '1 lá trên tay'} của ${t.name}.`);
@@ -332,14 +342,22 @@ function* runEffect(g, p, e, plan) {
 function* execPlay(g, p, a) {
   if (a.type === 'ability') { sidDiscard(g, p, a); return; }
   const plan = planPlay(g, p, a);
-  const card = takeHand(g, p, a.card);
+  const card = pull(p, a.card); // Suzy chỉ rút sau khi lá này xong hiệu ứng (FAQ Q22)
   const d = plan.def;
-  g.last = { pid: p.id, card: pubCard(card), target: plan.target ? plan.target.id : null };
+  g.last = { pid: p.id, card: pubCard(card), target: plan.target ? plan.target.id : null, asBang: plan.asBang };
   say(g, `🂠 ${p.name} chơi ${cname(g, card)}${plan.target ? ` → ${plan.target.name}` : ''}${plan.asBang ? ' (như BANG!)' : ''}`);
-  if (d.kind === 'equip') { yield* equip(g, p, card, d, plan.target); return; }
-  g.discard.push(card);
-  for (const e of d.effect) { if (!p.alive && e.type !== 'bang') break; yield* runEffect(g, p, e, plan); }
+  if (d.kind === 'equip') yield* equip(g, p, card, d, plan.target);
+  else {
+    g.discard.push(card);
+    for (const e of d.effect) {
+      if (!p.alive) break;
+      if (plan.target && !plan.target.alive && TARGETED.has(e.type)) continue;
+      yield* runEffect(g, p, e, plan);
+    }
+  }
+  suzy(g, p);
 }
+const TARGETED = new Set(['bang', 'duel', 'steal']);
 
 // ---------- lượt chơi ----------
 function* drawPhase(g, p) {
@@ -350,15 +368,16 @@ function* drawPhase(g, p) {
     const donors = g.players.filter((q) => q.alive && q !== p && q.hand.length);
     if (donors.length) {
       const a = yield prompt(p, 'choice', { text: 'Jesse Jones: lá đầu lấy từ đâu?', pub: { options: [{ id: 'deck', label: 'Chồng rút' }, ...donors.map((q) => ({ id: q.id, label: `Tay ${q.name} (${q.hand.length})` }))] } },
-        (act) => { if (act.type !== 'choice' || !(act.id === 'deck' || donors.some((q) => q.id === act.id))) throw new Error('Hãy chọn nguồn rút'); });
-      if (a.id !== 'deck') { const q = g.players.find((x) => x.id === a.id); const c = takeHand(g, q, rnd(q.hand).id); p.hand.push(c); got++; say(g, `${p.name} lấy 1 lá từ tay ${q.name} (Jesse Jones).`); }
+        // kiểm lại tay người cho ngay lúc trả lời: Sid có thể vừa bỏ bài ngoài lượt
+        (act) => { if (act.type !== 'choice' || !(act.id === 'deck' || donors.some((q) => q.id === act.id && q.hand.length))) throw new Error('Hãy chọn nguồn rút'); });
+      if (a.id !== 'deck') { const q = g.players.find((x) => x.id === a.id); const c = takeHand(g, q, rnd(g, q.hand).id); p.hand.push(c); got++; say(g, `${p.name} lấy 1 lá từ tay ${q.name} (Jesse Jones).`); }
     }
   }
   if (ab(g, p, 'pedro') && g.discard.length && got < n) {
     const top = g.discard[g.discard.length - 1];
     const a = yield prompt(p, 'choice', { text: 'Pedro Ramirez: lá đầu lấy từ đâu?', pub: { options: [{ id: 'deck', label: 'Chồng rút' }, { id: 'discard', label: `Chồng bỏ (${cname(g, top)})` }] } },
       (act) => { if (act.type !== 'choice' || !['deck', 'discard'].includes(act.id)) throw new Error('Hãy chọn nguồn rút'); });
-    if (a.id === 'discard') { p.hand.push(g.discard.pop()); got++; say(g, `${p.name} lấy ${cname(g, top)} từ chồng bỏ (Pedro).`); }
+    if (a.id === 'discard') { const c = g.discard.pop(); p.hand.push(c); got++; say(g, `${p.name} lấy ${cname(g, c)} từ chồng bỏ (Pedro).`); }
   }
   const rest = n - got;
   if (rest <= 0) return;
@@ -385,17 +404,30 @@ function* drawPhase(g, p) {
   }
 }
 
-function* nextEvent(g) {
-  if (!g.eventDeck.length) g.eventDeck = shuffle(g.cfg.eventKeys.slice());
+// Chồng sự kiện xây 1 lần: lá có "final" nằm đáy, lật tới thì giữ tới hết ván. Không có lá final thì hết chồng xáo lại.
+function nextEvent(g) {
+  const cur = g.event && g.cfg.events[g.event];
+  if (cur && cur.final) return;
+  if (!g.eventDeck.length) {
+    const keys = g.cfg.eventKeys, fin = (k) => !!g.cfg.events[k].final;
+    g.eventDeck = [...keys.filter(fin), ...shuffle(keys.filter((k) => !fin(k)), g.rng)];
+  }
   const key = g.eventDeck.pop();
   const ev = g.cfg.events[key];
   g.event = key; g.mods = { ...(ev.mods || {}) };
   say(g, `🎴 SỰ KIỆN: ${ev.name} — ${ev.desc || ''}`);
 }
 
+// Lỗi bất ngờ trong luật (thường do lá/sự kiện tự chế): ghi log rồi chơi tiếp thay vì làm chết cả ván.
+function fault(g, e) {
+  console.error('[engine]', e && e.stack ? e.stack : e);
+  say(g, `⚠️ Lỗi luật: ${e && e.message} — bỏ qua bước này.`);
+  if (++g.faults > 20) { g.winner = { team: 'error', text: 'Ván dừng vì lỗi luật lặp lại', players: [] }; throw OVER; }
+}
+
 function* playTurn(g, p) {
-  p.bangs = 0; p.cuff = null;
-  if (g.cfg.eventsOn && p === g.first && !g.noEvent) yield* nextEvent(g);
+  p.bangs = 0; p.cuff = null; g.last = null;
+  if (p === g.first && !g.noEvent) { g.round++; if (g.cfg.eventsOn && g.round >= 2) nextEvent(g); }
   g.noEvent = false;
   g.turn = p.id;
   say(g, `━━ Lượt của ${p.name} ━━`);
@@ -409,7 +441,12 @@ function* playTurn(g, p) {
       g.discard.push(dyn);
       yield* damage(g, p, g.rules.dynamiteDamage, null, 'Dynamite nổ');
       if (!p.alive) return;
-    } else { const nx = nextAlive(g, p, dirOf(g)); nx.table.push(dyn); say(g, `🧨 Dynamite chuyền sang ${nx.name}.`); }
+    } else {
+      // Dynamite luôn chuyền theo chiều kim đồng hồ, bỏ qua người đã có Dynamite.
+      let nx = nextAlive(g, p, 1);
+      while (nx !== p && nx.table.some((c) => (cdef(g, c).equip || {}).dynamite)) nx = nextAlive(g, nx, 1);
+      nx.table.push(dyn); say(g, `🧨 Dynamite chuyền sang ${nx.name}.`);
+    }
   }
   const jail = p.table.find((c) => (cdef(g, c).equip || {}).jail);
   if (jail) {
@@ -426,26 +463,30 @@ function* playTurn(g, p) {
     p.cuff = a.suit; say(g, `🔗 ${p.name} chọn chất ${SUIT_VI[a.suit]}.`);
   }
   while (p.alive) {
-    const a = yield prompt(p, 'play', { text: 'Đến lượt bạn' }, (act) => {
+    const a = yield prompt(p, 'play', { text: `Lượt của ${p.name}` }, (act) => {
       if (act.type === 'end') return;
       if (act.type === 'ability') return checkSid(g, p, act);
       planPlay(g, p, act);
     });
     if (a.type === 'end') break;
-    yield* execPlay(g, p, a);
+    try { yield* execPlay(g, p, a); } catch (e) { if (e === OVER) throw e; fault(g, e); }
   }
   if (!p.alive) return;
   while (p.hand.length > handLimit(g, p)) {
     const over = p.hand.length - handLimit(g, p);
-    const a = yield prompt(p, 'discard', { text: `Bỏ ${over} lá cho đủ giới hạn ${handLimit(g, p)}`, pub: { need: over } },
-      (act) => { if (act.type !== 'discard' || !p.hand.some((c) => c.id === act.card)) throw new Error('Chọn 1 lá trong tay để bỏ'); });
-    g.discard.push(takeHand(g, p, a.card));
+    const a = yield prompt(p, 'discard', { text: `${p.name} bỏ ${over} lá cho đủ giới hạn ${handLimit(g, p)}`, pub: { need: over } }, (act) => {
+      if (act.type === 'ability') return checkSid(g, p, act);
+      if (act.type !== 'discard' || !p.hand.some((c) => c.id === act.card)) throw new Error('Chọn 1 lá trong tay để bỏ');
+    });
+    if (a.type === 'ability') sidDiscard(g, p, a);
+    else g.discard.push(pull(p, a.card));
   }
-  if (m.vendetta && (yield* drawCheck(g, p, (s) => s === 'H', 'Vendetta'))) { p.extraTurn = true; say(g, `🩸 ${p.name} được chơi thêm 1 lượt!`); }
+  suzy(g, p);
+  if (m.vendetta && !p.inExtra && (yield* drawCheck(g, p, (s) => s === 'H', 'Vendetta'))) { p.extraTurn = true; say(g, `🩸 ${p.name} được chơi thêm 1 lượt!`); }
 }
 
 function* setup(g) {
-  const pool = shuffle(Object.keys(g.cfg.characters));
+  const pool = shuffle(Object.keys(g.cfg.characters), g.rng);
   const n = g.players.length;
   if (pool.length < n) throw new Error(`Chỉ có ${pool.length} nhân vật bật, không đủ cho ${n} người`);
   const sheriffIdx = Math.max(0, g.players.findIndex((p) => p.role === 'sheriff'));
@@ -474,8 +515,9 @@ function* main(g) {
     yield* setup(g);
     let p = g.first;
     for (;;) {
-      yield* playTurn(g, p);
-      if (p.alive && p.extraTurn) { p.extraTurn = false; g.noEvent = true; continue; }
+      try { yield* playTurn(g, p); } catch (e) { if (e === OVER) throw e; fault(g, e); }
+      if (p.alive && p.extraTurn) { p.extraTurn = false; p.inExtra = true; g.noEvent = true; continue; }
+      p.inExtra = false;
       p = nextAlive(g, p, dirOf(g));
     }
   } catch (e) { if (e !== OVER) throw e; }
@@ -484,33 +526,45 @@ function* main(g) {
 
 // ---------- API ----------
 function run(g, input) {
+  g.faults = 0;
   const r = g.co.next(input);
   g.ver++;
   if (r.done) { g.pending = null; return; }
   g.pending = r.value;
 }
-function newGame(members, settings) {
+// seed quyết định mọi lần xáo/ngẫu nhiên; server lưu seed + g.actions để dựng lại ván.
+function newGame(members, settings, seed = Math.floor(Math.random() * 2 ** 32)) {
   const cfg = resolve(settings);
   const n = members.length;
   const roles = cfg.roles[n];
   if (!roles) throw new Error(`Chưa có cấu hình vai trò cho ${n} người`);
-  const rl = shuffle([...roles]);
-  const players = shuffle(members.slice()).map((m, i) => ({ id: m.id, name: m.name, role: rl[i], char: null, life: 0, maxLife: 0, hand: [], table: [], alive: true, bangs: 0, cuff: null, extraTurn: false }));
+  const rng = makeRng(seed);
+  const rl = shuffle([...roles], rng);
+  const players = shuffle(members.slice(), rng).map((m, i) => ({ id: m.id, name: m.name, role: rl[i], char: null, life: 0, maxLife: 0, hand: [], table: [], alive: true, bangs: 0, cuff: null, extraTurn: false, inExtra: false }));
   let nid = 1;
-  const deck = shuffle(cfg.deck.map((c) => ({ ...c, id: nid++ })));
-  const g = { cfg, rules: cfg.rules, players, deck, discard: [], log: [], mods: {}, event: null, eventDeck: [], pending: null, winner: null, turn: null, last: null, ver: 0, first: null, noEvent: false };
+  const deck = shuffle(cfg.deck.map((c) => ({ ...c, id: nid++ })), rng);
+  const g = { seed, rng, actions: [], round: 0, faults: 0, cfg, rules: cfg.rules, players, deck, discard: [], log: [], mods: {}, event: null, eventDeck: [], pending: null, winner: null, turn: null, last: null, ver: 0, first: null, noEvent: false };
   g.co = main(g);
   run(g);
   return g;
 }
 function apply(g, pid, action) {
   if (g.winner) throw new Error('Ván đã kết thúc');
+  if (!action || typeof action !== 'object') throw new Error('Hành động không hợp lệ');
   const pr = g.pending;
+  // Sid Ketchum: bỏ 2 lá hồi 1 máu bất cứ lúc nào, kể cả ngoài lượt mình.
+  if (action.type === 'ability' && !(pr && pr.player === pid && (pr.type === 'play' || pr.type === 'discard'))) {
+    const p = g.players.find((x) => x.id === pid);
+    if (!p || !p.alive) throw new Error('Hành động không hợp lệ');
+    checkSid(g, p, action); sidDiscard(g, p, action);
+    g.actions.push([pid, action]); g.ver++;
+    return;
+  }
   if (!pr) throw new Error('Chưa tới lúc');
   if (pr.player !== pid) throw new Error('Chưa tới lượt bạn');
-  if (!action || typeof action !== 'object') throw new Error('Hành động không hợp lệ');
   if (pr.validate) pr.validate(action);
   g.pending = null;
+  g.actions.push([pid, action]);
   run(g, action);
 }
 // Kiểm tra mà không thực hiện (dùng cho bot/test). Trả về null nếu hợp lệ, hoặc chuỗi lỗi.
@@ -520,26 +574,53 @@ function check(g, pid, action) {
   try { if (pr.validate) pr.validate(action); return null; } catch (e) { return e.message; }
 }
 
+// Lá nào đang chơi được và nhắm được ai — client dùng để tô sáng đúng, khỏi đoán luật.
+function playableFor(g, p) {
+  const ok = (a) => { try { g.pending.validate(a); return true; } catch (e) { return false; } };
+  const others = g.players.filter((q) => q.alive && q !== p);
+  const out = {};
+  for (const c of p.hand) {
+    const base = { type: 'play', card: c.id };
+    const hits = (extra) => others.filter((q) => ok({ ...base, ...extra, target: q.id }) || q.table.some((t) => ok({ ...base, ...extra, target: q.id, zone: 'table', cardId: t.id }))).map((q) => q.id);
+    const r = { self: ok(base), targets: hits({}) };
+    if (ab(g, p, 'janet') && cdef(g, c).react === 'missed') r.bangTargets = hits({ as: 'bang' });
+    if (r.self || r.targets.length || (r.bangTargets && r.bangTargets.length)) out[c.id] = r;
+  }
+  return out;
+}
+function usableFor(g, p, pr) {
+  if (pr.type === 'respond') return respondCards(g, p, pr.data.pub.kind).map((c) => c.id);
+  if (pr.type === 'dying') return beersFor(g, p).map((c) => c.id);
+  if (pr.type === 'discard') return p.hand.map((c) => c.id);
+  return [];
+}
+
 function viewFor(g, pid) {
   const me = g.players.find((p) => p.id === pid);
   const showRole = (p) => p === me || p.role === 'sheriff' || (!p.alive && g.rules.revealRoleOnDeath) || !!g.winner;
   const pr = g.pending;
+  const mine = !!(pr && me && pr.player === pid);
   let pending = null;
-  if (pr) pending = { player: pr.player, type: pr.type, text: pr.data.text || '', ...(pr.data.pub || {}), ...(pr.player === pid ? pr.data.priv || {} : {}) };
+  if (pr) pending = { player: pr.player, type: pr.type, text: pr.data.text || '', ...(pr.data.pub || {}), ...(mine ? pr.data.priv || {} : {}) };
   const ev = g.event ? g.cfg.events[g.event] : null;
   return {
-    ver: g.ver,
+    ver: g.ver, round: g.round,
     players: g.players.map((p) => ({
       id: p.id, name: p.name, char: p.char, life: p.life, maxLife: p.maxLife, hand: p.hand.length, alive: p.alive,
       table: p.table.map(pubCard), role: showRole(p) ? p.role : null,
       dist: me && me.alive && p.alive && p !== me ? distance(g, me, p) : null,
     })),
-    me: me ? { hand: me.hand.map(pubCard), role: me.role, bangs: me.bangs, cuff: me.cuff, bangLimit: bangLimit(g, me) === Infinity ? 0 : bangLimit(g, me), range: weaponRange(g, me) } : null,
-    turn: g.turn, deck: g.deck.length,
+    me: me ? {
+      hand: me.hand.map(pubCard), role: me.role, bangs: me.bangs, cuff: me.cuff, bangLimit: bangLimit(g, me) === Infinity ? 0 : bangLimit(g, me), range: weaponRange(g, me),
+      playable: mine && pr.type === 'play' ? playableFor(g, me) : null,
+      usable: mine ? usableFor(g, me, pr) : [],
+      sidCan: ab(g, me, 'sid') && me.alive && me.life < me.maxLife && me.hand.length >= 2,
+    } : null,
+    turn: g.turn, deck: g.deck.length, discard: g.discard.length,
     discardTop: g.discard.length ? pubCard(g.discard[g.discard.length - 1]) : null,
-    last: g.last, event: ev ? { key: g.event, name: ev.name, icon: ev.icon, desc: ev.desc } : null,
-    eventsOn: g.cfg.eventsOn,
-    pending, winner: g.winner, log: g.log.slice(-100),
+    last: g.last, event: ev ? { key: g.event, name: ev.name, icon: ev.icon, desc: ev.desc, final: !!ev.final } : null,
+    eventsOn: g.cfg.eventsOn, reverse: !!g.mods.reverse,
+    pending, winner: g.winner, log: g.log.slice(-150),
     defs: {
       cards: Object.fromEntries(Object.entries(g.cfg.cards).map(([k, c]) => [k, { name: c.name, icon: c.icon || '🂠', kind: c.kind, desc: c.desc || '', target: c.target || 'none', range: c.range, react: c.react, playable: c.playable, isBeer: !!c.isBeer, steal: (c.effect || []).some((e) => e.type === 'steal'), bang: (c.effect || []).some((e) => e.type === 'bang') }])),
       chars: Object.fromEntries(Object.entries(g.cfg.characters).map(([k, c]) => [k, { name: c.name, icon: c.icon || '🙂', life: c.life, desc: c.desc || '', abilities: c.abilities || [] }])),

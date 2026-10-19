@@ -20,13 +20,23 @@ function readJson(file) {
 function mergeKeyed(base, extra) {
   const out = { ...base };
   for (const [k, v] of Object.entries(extra || {})) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
     if (v === null) delete out[k];
     else if (typeof v === 'object') out[k] = { ...(out[k] || {}), ...v };
   }
   return out;
 }
 
+// Cache theo mtime: sửa file config/ hay custom/ vẫn có hiệu lực ngay, nhưng không đọc lại 11 file mỗi request.
+const FILES = ['cards', 'characters', 'events', 'roles', 'rules', 'presets'];
+let cache = null, cacheSig = '';
 function loadBase() {
+  const sig = FILES.map((n) => [DIR, CUSTOM].map((d) => { try { return fs.statSync(path.join(d, n + '.json')).mtimeMs; } catch (e) { return 0; } }).join(':')).join('|');
+  if (cache && sig === cacheSig) return cache;
+  cache = readBase(); cacheSig = sig;
+  return cache;
+}
+function readBase() {
   const get = (n) => readJson(path.join(DIR, n + '.json'));
   const cus = (n) => readJson(path.join(CUSTOM, n + '.json')) || {};
   const ruleDefs = get('rules').map((r) => ({ ...r }));
@@ -49,36 +59,62 @@ function expand(list, key) {
     if (!m) throw new Error(`Lá "${key}": printing "${s}" sai định dạng (ví dụ "H:5", "D:2-A", "S:9*2")`);
     const i = RANKS.indexOf(m[2]), j = m[3] ? RANKS.indexOf(m[3]) : i;
     if (i < 0 || j < i) throw new Error(`Lá "${key}": hạng bài sai trong "${s}"`);
-    for (let r = i; r <= j; r++) for (let t = 0; t < (+m[4] || 1); t++) out.push({ suit: m[1], rank: RANKS[r] });
+    const times = +m[4] || 1;
+    if (times > 10) throw new Error(`Lá "${key}": "*${times}" quá lớn (tối đa *10)`);
+    for (let r = i; r <= j; r++) for (let t = 0; t < times; t++) out.push({ suit: m[1], rank: RANKS[r] });
   }
   return out;
 }
 
+const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+// Kiểm 1 trường số nguyên tuỳ chọn; sai thì báo rõ để người viết JSON tự sửa.
+function intField(where, obj, key, lo, hi) {
+  if (obj[key] !== undefined && !isInt(obj[key], lo, hi)) throw new Error(`${where}: "${key}" phải là số nguyên ${lo}…${hi}`);
+}
+const NUM_MODS = { drawDelta: [-3, 3], bangBonus: [0, 5], beerHeal: [0, 3], rangeBonus: [-3, 3], turnStartDamage: [0, 3], turnStartHeal: [0, 3], turnStartDraw: [0, 3], handLimitDelta: [-3, 5], missedExtra: [0, 2] };
+
 function validate(cfg) {
   const eff = (where, e) => {
     if (!e || !EFFECTS.has(e.type)) throw new Error(`${where}: hiệu ứng "${e && e.type}" không có. Các hiệu ứng: ${[...EFFECTS].join(', ')}`);
+    for (const f of ['amount', 'n', 'damage']) intField(where, e, f, 1, 5);
+    if (e.type === 'aoe' && !['bang', 'missed'].includes(e.respond)) throw new Error(`${where}: aoe cần "respond": "bang" hoặc "missed"`);
+    if (e.type === 'steal' && !['take', 'discard'].includes(e.mode)) throw new Error(`${where}: steal cần "mode": "take" hoặc "discard"`);
   };
   for (const [k, c] of Object.entries(cfg.cards)) {
-    if (!c.name) throw new Error(`Lá "${k}" thiếu "name"`);
-    if (c.kind !== 'action' && c.kind !== 'equip') throw new Error(`Lá "${k}": kind phải là "action" hoặc "equip"`);
+    const w = `Lá "${k}"`;
+    if (!c.name) throw new Error(`${w} thiếu "name"`);
+    if (c.kind !== 'action' && c.kind !== 'equip') throw new Error(`${w}: kind phải là "action" hoặc "equip"`);
+    if (c.target !== undefined && c.target !== 'other' && c.target !== 'self') throw new Error(`${w}: target phải là "other" hoặc "self"`);
+    if (c.range !== undefined && c.range !== 'weapon' && c.range !== 'any' && !isInt(c.range, 1, 10)) throw new Error(`${w}: range phải là "weapon", "any" hoặc số 1…10`);
+    if (c.react !== undefined && c.react !== 'bang' && c.react !== 'missed') throw new Error(`${w}: react phải là "bang" hoặc "missed"`);
+    if (!Array.isArray(c.printings)) throw new Error(`${w}: cần "printings" (mảng)`);
     if (c.effect !== undefined) {
-      if (!Array.isArray(c.effect)) throw new Error(`Lá "${k}": effect phải là mảng`);
-      c.effect.forEach((e) => eff(`Lá "${k}"`, e));
+      if (!Array.isArray(c.effect)) throw new Error(`${w}: effect phải là mảng`);
+      c.effect.forEach((e) => eff(w, e));
+      if (c.effect.some((e) => ['bang', 'duel', 'steal'].includes(e.type)) && c.target !== 'other') throw new Error(`${w}: hiệu ứng bang/duel/steal cần "target": "other"`);
+      if (c.effect.filter((e) => e.type === 'steal').length > 1) throw new Error(`${w}: mỗi lá chỉ được 1 hiệu ứng steal`);
     }
-    if (c.kind === 'equip' && !c.equip) throw new Error(`Lá "${k}": thiếu "equip"`);
+    if (c.kind === 'equip' && (!c.equip || typeof c.equip !== 'object')) throw new Error(`${w}: thiếu "equip"`);
+    if (c.equip) { intField(w, c.equip, 'weapon', 1, 10); intField(w, c.equip, 'distIn', -3, 3); intField(w, c.equip, 'distOut', -3, 3); }
     if (c.kind === 'action' && c.playable !== 'never' && !(c.effect && c.effect.length)) throw new Error(`Lá "${k}": cần "effect" hoặc "playable":"never"`);
   }
   for (const [k, c] of Object.entries(cfg.characters)) {
-    if (!c.name || !(c.life > 0)) throw new Error(`Nhân vật "${k}" cần "name" và "life" > 0`);
+    if (!c.name || !isInt(c.life, 1, 10)) throw new Error(`Nhân vật "${k}" cần "name" và "life" là số nguyên 1…10`);
     for (const a of c.abilities || []) if (!ABILITIES.has(a)) throw new Error(`Nhân vật "${k}": kỹ năng "${a}" không có. Các kỹ năng: ${[...ABILITIES].join(', ')}`);
   }
   for (const [k, e] of Object.entries(cfg.events)) {
     if (!e.name) throw new Error(`Sự kiện "${k}" thiếu "name"`);
-    for (const m of Object.keys(e.mods || {})) if (!MODS.has(m)) throw new Error(`Sự kiện "${k}": mod "${m}" không có. Các mod: ${[...MODS].join(', ')}`);
+    for (const [m, v] of Object.entries(e.mods || {})) {
+      if (!MODS.has(m)) throw new Error(`Sự kiện "${k}": mod "${m}" không có. Các mod: ${[...MODS].join(', ')}`);
+      if (NUM_MODS[m]) intField(`Sự kiện "${k}"`, e.mods, m, ...NUM_MODS[m]);
+      else if (m === 'drawSuit') { if (!'SHDC'.includes(v) || v.length !== 1) throw new Error(`Sự kiện "${k}": drawSuit phải là S/H/D/C`); }
+      else if (typeof v !== 'boolean') throw new Error(`Sự kiện "${k}": mod "${m}" phải là true/false`);
+    }
   }
   for (const [n, list] of Object.entries(cfg.roles)) {
     if (!Array.isArray(list) || list.length !== +n) throw new Error(`roles["${n}"] phải là mảng đúng ${n} vai`);
     for (const r of list) if (!['sheriff', 'deputy', 'outlaw', 'renegade'].includes(r)) throw new Error(`Vai "${r}" không hợp lệ`);
+    if (list.filter((r) => r === 'sheriff').length > 1) throw new Error(`roles["${n}"] chỉ được tối đa 1 sheriff`);
   }
 }
 
@@ -130,7 +166,9 @@ function resolve(settings = {}) {
     const copies = s.cardCopies[key] !== undefined ? s.cardCopies[key] : 1;
     const pr = expand(c.printings, key);
     for (let i = 0; i < copies; i++) for (const p of pr) cfg.deck.push({ key, suit: p.suit, rank: p.rank });
+    if (cfg.deck.length > 500) throw new Error('Bộ bài quá lớn (tối đa 500 lá)');
   }
+  if (cfg.deck.length < 20) throw new Error(`Bộ bài chỉ còn ${cfg.deck.length} lá, cần ít nhất 20`);
   return cfg;
 }
 

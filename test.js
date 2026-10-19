@@ -1,9 +1,20 @@
 'use strict';
-// Cho bot chơi ngẫu nhiên nhiều ván với nhiều cấu hình để bắt lỗi luật.  Chạy: node test.js [số ván]
+// Cho bot chơi nhiều ván với nhiều cấu hình để bắt lỗi luật.
+//   node test.js [số ván] [seed]      — bot ngẫu nhiên (fuzz), in seed khi lỗi để chạy lại đúng ván đó
+//   node test.js ai [số ván] [seed]   — bot AI (ai.js) đấu nhau + AI đấu bot ngẫu nhiên
 const engine = require('./engine');
 const { describe } = require('./config');
 
-const rnd = (a) => a[Math.floor(Math.random() * a.length)];
+const args = process.argv.slice(2);
+const AI_MODE = args[0] === 'ai';
+if (AI_MODE) args.shift();
+const N = +args[0] || 200;
+const SEED = +args[1] || Math.floor(Math.random() * 1e9);
+
+// PRNG riêng cho lựa chọn của bot, để cả lượt chạy tái hiện được từ SEED.
+let rs = SEED >>> 0;
+const rand = () => { rs = (rs + 0x6D2B79F5) >>> 0; let t = rs; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const rnd = (a) => a[Math.floor(rand() * a.length)];
 
 function candidates(g, pid) {
   const v = engine.viewFor(g, pid);
@@ -32,37 +43,63 @@ function candidates(g, pid) {
     case 'choice': for (const o of pr.options) out.push({ type: 'choice', id: o.id }); break;
     case 'char': for (const k of pr.options) out.push({ type: 'char', key: k }); break;
     case 'suit': for (const s of 'SHDC') out.push({ type: 'suit', suit: s }); break;
-    case 'discard': for (const c of me.hand) out.push({ type: 'discard', card: c.id }); break;
+    case 'discard': for (const c of me.hand) out.push({ type: 'discard', card: c.id }); if (me.hand.length >= 2) out.push({ type: 'ability', cards: [me.hand[0].id, me.hand[1].id] }); break;
     default: throw new Error('prompt lạ: ' + pr.type);
   }
   return out;
 }
+function randomAction(g, pid) {
+  let cands = candidates(g, pid).filter((a) => engine.check(g, pid, a) === null);
+  if (g.pending.type === 'play') { const nonEnd = cands.filter((a) => a.type !== 'end'); if (nonEnd.length && rand() < 0.85) cands = nonEnd; }
+  if (!cands.length) throw new Error(`Bot ${pid} bí: ${g.pending.type}`);
+  return rnd(cands);
+}
 
-function playOne(settings, n, maxSteps = 6000) {
+// Lá đang "lơ lửng" chờ chọn: General Store (pick) và Kit Carlson (kit). Lá rút! của Lucky đã nằm ở chồng bỏ.
+const limbo = (g) => { const d = g.pending && g.pending.data; if (!d) return 0; if (g.pending.type === 'kit') return d.priv.cards.length; return g.pending.type === 'pick' && !d.pub.flip ? d.pub.cards.length : 0; };
+const cardCount = (g) => limbo(g) + g.deck.length + g.discard.length + g.players.reduce((s, p) => s + p.hand.length + p.table.length, 0);
+function invariants(g) {
+  if (cardCount(g) !== g.cfg.deck.length) throw new Error(`Lệch số bài: ${cardCount(g)} vs ${g.cfg.deck.length}`);
+  for (const p of g.players) {
+    const dyingNow = g.pending && g.pending.type === 'dying' && g.pending.player === p.id;
+    if (p.char && p.alive && ((p.life <= 0 && !dyingNow) || p.life > p.maxLife || !Number.isInteger(p.life))) throw new Error(`Máu sai: ${p.name} ${p.life}/${p.maxLife} sau ${g.pending && g.pending.type}`);
+    if (!p.alive && (p.hand.length || p.table.length)) throw new Error('Người chết còn bài');
+  }
+  if (g.log.some((l) => l.startsWith('⚠️ Lỗi luật'))) throw new Error('Engine báo lỗi luật: ' + g.log.find((l) => l.startsWith('⚠️')));
+}
+
+// pickFor(g, pid) → action. Thỉnh thoảng chen Sid ngoài lượt để thử nhánh "bất cứ lúc nào".
+function playOne(settings, n, pickFor, maxSteps = 8000) {
   const members = Array.from({ length: n }, (_, i) => ({ id: 'p' + i, name: 'P' + i }));
-  const g = engine.newGame(members, settings);
+  const seed = Math.floor(rand() * 2 ** 32);
+  const g = engine.newGame(members, settings, seed);
   let steps = 0;
   while (!g.winner) {
     if (!g.pending) throw new Error('Không có prompt nhưng chưa có người thắng');
     if (++steps > maxSteps) throw new Error('Ván quá dài (kẹt?)');
-    const pid = g.pending.player;
-    let cands = candidates(g, pid).filter((a) => engine.check(g, pid, a) === null);
-    if (g.pending.type === 'play') { const nonEnd = cands.filter((a) => a.type !== 'end'); if (nonEnd.length && Math.random() < 0.85) cands = nonEnd; }
-    if (!cands.length) throw new Error(`Bot ${pid} bí: ${g.pending.type}`);
-    engine.apply(g, pid, rnd(cands));
-    // bất biến
-    for (const p of g.players) {
-      const dyingNow = g.pending && g.pending.type === 'dying' && g.pending.player === p.id;
-      if (p.char && p.alive && ((p.life <= 0 && !dyingNow) || p.life > p.maxLife)) throw new Error(`Máu sai: ${p.name} ${p.life}/${p.maxLife} sau ${g.pending && g.pending.type}`);
-      if (!p.alive && (p.hand.length || p.table.length)) throw new Error('Người chết còn bài');
-    }
+    const sid = g.players.find((p) => p.alive && p.id !== g.pending.player && p.life < p.maxLife && p.hand.length >= 2 && engine.viewFor(g, p.id).sid);
+    if (sid && rand() < 0.05) engine.apply(g, sid.id, { type: 'ability', cards: [sid.hand[0].id, sid.hand[1].id] });
+    else { const pid = g.pending.player; engine.apply(g, pid, pickFor(g, pid)); }
+    invariants(g);
   }
-  const total = g.deck.length + g.discard.length + g.players.reduce((s, p) => s + p.hand.length + p.table.length, 0);
-  return { steps, winner: g.winner.team, total, deckSize: g.cfg.deck.length };
+  // dựng lại từ seed + chuỗi action phải ra đúng ván cũ (server dựa vào điều này để lưu phòng)
+  if (rand() < 0.1) {
+    const r = engine.newGame(members, settings, seed);
+    for (const [pid, a] of g.actions) engine.apply(r, pid, a);
+    if (r.log.join('\n') !== g.log.join('\n')) throw new Error('Replay lệch với ván gốc');
+  }
+  return { g, steps };
 }
 
-const N = +process.argv[2] || 200;
 const meta = describe();
+const EXAMPLE = {
+  whiskey: { name: 'Whiskey', icon: '🥃', kind: 'action', target: 'self', effect: [{ type: 'heal', amount: 2 }], desc: 'Hồi 2 máu.', printings: ['H:2-4'] },
+  machinegun: { name: 'Súng máy', icon: '🔫', kind: 'action', target: 'other', range: 'weapon', effect: [{ type: 'bang' }, { type: 'bang' }], printings: ['D:5', 'C:5'] },
+  duelbang: { name: 'Duel rồi bắn', kind: 'action', target: 'other', range: 'any', effect: [{ type: 'duel' }, { type: 'bang' }], printings: ['S:3*2'] },
+  robbang: { name: 'Cướp rồi bắn', kind: 'action', target: 'other', range: 1, effect: [{ type: 'steal', mode: 'take' }, { type: 'bang' }], printings: ['C:3*2'] },
+  bang: { desc: 'Ví dụ ghi đè: chỉ đổi mô tả lá BANG!' },
+  winchester: null,
+};
 const variants = [
   {},
   { rules: { eventsOn: true } },
@@ -71,27 +108,60 @@ const variants = [
   { rules: { beerDisabledAt: 0, handLimitUnlimited: true, jailEscapeSuit: 'S' } },
   meta.presets.find((p) => p.id === 'gunfight').settings,
   { rules: { eventsOn: true }, cardCopies: { dynamite: 3, jail: 3, panic: 2 } },
-  { // thử cơ chế tuỳ chỉnh: lá mới, nhân vật mới, sự kiện mới, vai trò mới
+  { rules: { handLimitBonus: -2 }, charactersOff: meta.characters.map((c) => c.key).filter((k) => !['suzy', 'sid', 'vulture', 'janet', 'slab', 'lucky', 'kit', 'jesse', 'pedro', 'bart'].includes(k)) },
+  { // cơ chế tuỳ chỉnh: lá nhiều hiệu ứng, nhân vật mới, sự kiện mới, chế độ không Sheriff
     rules: { eventsOn: true },
     override: {
-      cards: { ...JSON.parse(require('fs').readFileSync(__dirname + '/custom/cards.example.json', 'utf8')) },
+      cards: EXAMPLE,
       characters: { toi: { name: 'Tôi', icon: '😎', life: 5, abilities: ['sid', 'willy'] }, bart: null },
-      events: { mua: { name: 'Mưa bài', mods: { turnStartDraw: 1, missedExtra: 0 } }, curse: null },
-      roles: { 3: ['sheriff', 'outlaw', 'outlaw'] },
+      events: { mua: { name: 'Mưa bài', mods: { turnStartDraw: 1, missedExtra: 0 } }, curse: null, vendetta2: { name: 'Vendetta+', mods: { vendetta: true, drawSuit: 'H' } } },
+      roles: { 3: ['outlaw', 'outlaw', 'renegade'], 4: ['renegade', 'outlaw', 'outlaw', 'deputy'] },
     },
   },
 ];
+
+const policies = AI_MODE ? require('./ai') : null;
+function aiPicker() {
+  const mem = {};
+  return (gg, pid) => {
+    const m = mem[pid] || (mem[pid] = policies.newMemory());
+    const a = policies.decide(engine.viewFor(gg, pid), m, (x) => engine.check(gg, pid, x) === null);
+    if (!a) throw new Error(`AI ${pid} trả null ở ${gg.pending.type}`);
+    if (engine.check(gg, pid, a) !== null) throw new Error(`AI ${pid} trả nước sai ở ${gg.pending.type}`);
+    return a;
+  };
+}
+
 let games = 0; const wins = {}; let maxSteps = 0;
+const aiStats = { aiSheriffWin: 0, aiSheriffGames: 0, aiOutlawWin: 0, aiOutlawGames: 0 };
 for (let i = 0; i < N; i++) {
-  const s = variants[i % variants.length];
-  const n = meta.minPlayers + (i % (Math.min(meta.maxPlayers, 8) - meta.minPlayers + 1));
+  const v = i % variants.length;
+  const s = variants[v];
+  const n = meta.minPlayers + (Math.floor(i / variants.length) % (meta.maxPlayers - meta.minPlayers + 1)); // mỗi biến thể chạy qua đủ số người
   try {
-    const r = playOne(s, n);
-    if (r.total !== r.deckSize) throw new Error(`Lệch số bài: ${r.total} vs ${r.deckSize}`);
-    games++; wins[r.winner] = (wins[r.winner] || 0) + 1; maxSteps = Math.max(maxSteps, r.steps);
+    let pick = randomAction;
+    let mix = null;
+    if (AI_MODE) {
+      const ai = aiPicker();
+      mix = i % 3; // 0: AI vs AI, 1: phe Sheriff là AI, 2: phe Outlaw/Renegade là AI
+      pick = (g, pid) => {
+        if (mix === 0) return ai(g, pid);
+        const p = g.players.find((x) => x.id === pid);
+        const lawful = p.role === 'sheriff' || p.role === 'deputy';
+        return (mix === 1) === lawful ? ai(g, pid) : randomAction(g, pid);
+      };
+    }
+    const { g, steps } = playOne(s, n, pick);
+    if (mix === 1 && g.players.some((p) => p.role === 'sheriff')) { aiStats.aiSheriffGames++; if (g.winner.team === 'sheriff') aiStats.aiSheriffWin++; }
+    if (mix === 2 && g.players.some((p) => p.role === 'sheriff')) { aiStats.aiOutlawGames++; if (g.winner.team !== 'sheriff') aiStats.aiOutlawWin++; }
+    games++; wins[g.winner.team] = (wins[g.winner.team] || 0) + 1; maxSteps = Math.max(maxSteps, steps);
   } catch (e) {
-    console.error(`LỖI ở ván ${i} (${n} người, biến thể ${i % variants.length}):`, e.stack);
+    console.error(`LỖI ở ván ${i} (${n} người, biến thể ${v}, seed lượt chạy ${SEED}):`, e.stack);
     process.exit(1);
   }
 }
-console.log(`OK ${games}/${N} ván. Người thắng:`, wins, '— ván dài nhất', maxSteps, 'bước');
+console.log(`OK ${games}/${N} ván (seed ${SEED}). Người thắng:`, wins, '— ván dài nhất', maxSteps, 'bước');
+if (AI_MODE) {
+  const pct = (a, b) => (b ? Math.round((100 * a) / b) + '%' : '-');
+  console.log(`AI phe Sheriff vs random: thắng ${pct(aiStats.aiSheriffWin, aiStats.aiSheriffGames)} · AI phe Outlaw/Renegade vs random: thắng ${pct(aiStats.aiOutlawWin, aiStats.aiOutlawGames)}`);
+}

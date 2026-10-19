@@ -1,0 +1,15 @@
+{
+  "name": "bang-online",
+  "version": "2.0.0",
+  "private": true,
+  "description": "BANG! chơi trên trình duyệt với bạn bè — Node.js thuần, không dependency",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js 300",
+    "test:ai": "node test.js ai 200"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

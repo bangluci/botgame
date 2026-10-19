@@ -243,7 +243,7 @@ function topbarHtml() {
 export const gameSkeleton = () => `<div class="game" id="game">
   <header class="topbar" id="g-top"></header>
   <main class="g-main">
-    <section class="table-area"><div class="felt" aria-hidden="true"></div><div class="seats" id="g-seats"></div><div class="center" id="g-center"></div></section>
+    <section class="table-area"><div class="felt" aria-hidden="true"></div><div class="seats" id="g-seats"></div><div class="pile-center" id="g-center"></div></section>
     <div class="me-zone"><div id="g-me"></div><div id="g-banner" aria-live="polite"></div><div class="hand" id="g-hand"></div></div>
   </main>
   <aside class="log" id="g-log"></aside>

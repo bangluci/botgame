@@ -582,7 +582,8 @@ function playableFor(g, p) {
   for (const c of p.hand) {
     const base = { type: 'play', card: c.id };
     const hits = (extra) => others.filter((q) => ok({ ...base, ...extra, target: q.id }) || q.table.some((t) => ok({ ...base, ...extra, target: q.id, zone: 'table', cardId: t.id }))).map((q) => q.id);
-    const r = { self: ok(base), targets: hits({}) };
+    const needs = cdef(g, c).target === 'other'; // lá tự chơi bỏ qua target nên không được liệt kê mục tiêu
+    const r = { self: !needs && ok(base), targets: needs ? hits({}) : [] };
     if (ab(g, p, 'janet') && cdef(g, c).react === 'missed') r.bangTargets = hits({ as: 'bang' });
     if (r.self || r.targets.length || (r.bangTargets && r.bangTargets.length)) out[c.id] = r;
   }

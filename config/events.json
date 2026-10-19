@@ -1,0 +1,17 @@
+{
+  "blessing": { "name": "Blessing", "icon": "🙏", "desc": "Mọi lá rút! đều tính là ♥.", "mods": { "drawSuit": "H" } },
+  "curse": { "name": "Curse", "icon": "😈", "desc": "Mọi lá rút! đều tính là ♠.", "mods": { "drawSuit": "S" } },
+  "goldrush": { "name": "Gold Rush", "icon": "⛏️", "desc": "Thứ tự lượt chơi đảo ngược.", "mods": { "reverse": true } },
+  "sermon": { "name": "The Sermon", "icon": "⛪", "desc": "Không ai được chơi BANG!.", "mods": { "noBang": true } },
+  "thirst": { "name": "Thirst", "icon": "🏜️", "desc": "Đầu lượt chỉ rút ít hơn 1 lá.", "mods": { "drawDelta": -1 } },
+  "trainarrival": { "name": "Train Arrival", "icon": "🚂", "desc": "Đầu lượt rút thêm 1 lá.", "mods": { "drawDelta": 1 } },
+  "shootout": { "name": "Shootout", "icon": "🌵", "desc": "Mỗi lượt được bắn thêm 1 BANG!.", "mods": { "bangBonus": 1 } },
+  "hangover": { "name": "Hangover", "icon": "🥴", "desc": "Mọi nhân vật mất kỹ năng.", "mods": { "noAbilities": true } },
+  "highnoon": { "name": "High Noon", "icon": "☀️", "desc": "Đầu lượt mỗi người mất 1 máu.", "mods": { "turnStartDamage": 1 } },
+  "handcuffs": { "name": "Handcuffs", "icon": "🔗", "desc": "Đầu lượt chọn 1 chất; chỉ được chơi bài chất đó.", "mods": { "handcuffs": true } },
+  "vendetta": { "name": "Vendetta", "icon": "🩸", "desc": "Cuối lượt rút!: ra ♥ thì chơi thêm 1 lượt.", "mods": { "vendetta": true } },
+  "prohibition": { "name": "Prohibition", "icon": "🚫", "desc": "Beer không hồi máu.", "mods": { "beerHeal": 0 } },
+  "happyhour": { "name": "Happy Hour", "icon": "🍻", "desc": "Beer hồi 2 máu.", "mods": { "beerHeal": 2 } },
+  "longbarrels": { "name": "Long Barrels", "icon": "🎯", "desc": "Mọi khẩu súng tầm +1.", "mods": { "rangeBonus": 1 } },
+  "siesta": { "name": "Siesta", "icon": "😴", "desc": "Đầu lượt hồi 1 máu.", "mods": { "turnStartHeal": 1 } }
+}

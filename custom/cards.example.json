@@ -1,0 +1,16 @@
+{
+  "whiskey": {
+    "name": "Whiskey", "icon": "🥃", "kind": "action", "target": "self",
+    "effect": [{ "type": "heal", "amount": 2 }],
+    "desc": "Hồi 2 máu.",
+    "printings": ["H:2-4"]
+  },
+  "machinegun": {
+    "name": "Súng máy", "icon": "🔫", "kind": "action", "target": "other", "range": "weapon",
+    "effect": [{ "type": "bang" }, { "type": "bang" }],
+    "desc": "Bắn 2 phát BANG! liên tiếp vào cùng 1 người.",
+    "printings": ["D:5", "C:5"]
+  },
+  "bang": { "desc": "Ví dụ ghi đè: chỉ đổi mô tả lá BANG!, mọi trường khác giữ nguyên." },
+  "winchester": null
+}

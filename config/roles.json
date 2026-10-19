@@ -1,0 +1,11 @@
+{
+  "2": ["sheriff", "outlaw"],
+  "3": ["sheriff", "outlaw", "renegade"],
+  "4": ["sheriff", "renegade", "outlaw", "outlaw"],
+  "5": ["sheriff", "deputy", "renegade", "outlaw", "outlaw"],
+  "6": ["sheriff", "deputy", "renegade", "outlaw", "outlaw", "outlaw"],
+  "7": ["sheriff", "deputy", "deputy", "renegade", "outlaw", "outlaw", "outlaw"],
+  "8": ["sheriff", "deputy", "deputy", "renegade", "renegade", "outlaw", "outlaw", "outlaw"],
+  "9": ["sheriff", "deputy", "deputy", "deputy", "renegade", "renegade", "outlaw", "outlaw", "outlaw"],
+  "10": ["sheriff", "deputy", "deputy", "deputy", "renegade", "renegade", "outlaw", "outlaw", "outlaw", "outlaw"]
+}

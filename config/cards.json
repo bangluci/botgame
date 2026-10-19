@@ -1,0 +1,124 @@
+{
+  "bang": {
+    "name": "BANG!", "icon": "🔫", "kind": "action", "react": "bang",
+    "target": "other", "range": "weapon", "effect": [{ "type": "bang" }],
+    "desc": "Bắn 1 người trong tầm súng. Họ phải đỡ bằng Missed! nếu không mất 1 máu.",
+    "printings": ["S:A", "H:Q-A", "D:2-A", "C:2-9"]
+  },
+  "missed": {
+    "name": "Missed!", "icon": "💨", "kind": "action", "react": "missed", "playable": "never",
+    "desc": "Chỉ dùng để né BANG! hoặc Gatling.",
+    "printings": ["S:2-8", "C:10-A"]
+  },
+  "beer": {
+    "name": "Beer", "icon": "🍺", "kind": "action", "isBeer": true, "target": "self",
+    "effect": [{ "type": "heal", "amount": 1 }],
+    "desc": "Hồi 1 máu. Cũng dùng để tự cứu khi sắp chết.",
+    "printings": ["H:6-J"]
+  },
+  "saloon": {
+    "name": "Saloon", "icon": "🥃", "kind": "action",
+    "effect": [{ "type": "heal", "amount": 1, "who": "all" }],
+    "desc": "Mọi người còn sống hồi 1 máu.",
+    "printings": ["H:5"]
+  },
+  "wellsfargo": {
+    "name": "Wells Fargo", "icon": "💰", "kind": "action",
+    "effect": [{ "type": "draw", "n": 3 }],
+    "desc": "Rút 3 lá.",
+    "printings": ["H:3"]
+  },
+  "stagecoach": {
+    "name": "Stagecoach", "icon": "🐎", "kind": "action",
+    "effect": [{ "type": "draw", "n": 2 }],
+    "desc": "Rút 2 lá.",
+    "printings": ["S:9*2"]
+  },
+  "generalstore": {
+    "name": "General Store", "icon": "🏪", "kind": "action",
+    "effect": [{ "type": "store" }],
+    "desc": "Lật ra số lá bằng số người sống; lần lượt mỗi người chọn 1 lá, bắt đầu từ bạn.",
+    "printings": ["C:9", "S:Q"]
+  },
+  "gatling": {
+    "name": "Gatling", "icon": "🔥", "kind": "action",
+    "effect": [{ "type": "aoe", "respond": "missed", "damage": 1, "barrel": true }],
+    "desc": "Mọi người khác phải đỡ bằng Missed! hoặc mất 1 máu.",
+    "printings": ["H:10"]
+  },
+  "indians": {
+    "name": "Indians!", "icon": "🏹", "kind": "action",
+    "effect": [{ "type": "aoe", "respond": "bang", "damage": 1 }],
+    "desc": "Mọi người khác phải bỏ 1 BANG! hoặc mất 1 máu.",
+    "printings": ["D:K", "D:A"]
+  },
+  "duel": {
+    "name": "Duel", "icon": "⚔️", "kind": "action", "target": "other", "range": "any",
+    "effect": [{ "type": "duel" }],
+    "desc": "Thách đấu 1 người. Lần lượt bỏ BANG!, ai hết trước mất 1 máu.",
+    "printings": ["D:Q", "S:J", "C:8"]
+  },
+  "panic": {
+    "name": "Panic!", "icon": "🫳", "kind": "action", "target": "other", "range": 1,
+    "effect": [{ "type": "steal", "mode": "take" }],
+    "desc": "Lấy 1 lá của người ở khoảng cách 1 (từ tay ngẫu nhiên hoặc đồ trên bàn).",
+    "printings": ["H:J", "H:Q", "H:A", "D:8"]
+  },
+  "catbalou": {
+    "name": "Cat Balou", "icon": "🙀", "kind": "action", "target": "other", "range": "any",
+    "effect": [{ "type": "steal", "mode": "discard" }],
+    "desc": "Bắt 1 người bỏ 1 lá (từ tay ngẫu nhiên hoặc đồ trên bàn), mọi khoảng cách.",
+    "printings": ["H:K", "D:9", "D:10", "D:J"]
+  },
+  "barrel": {
+    "name": "Barrel", "icon": "🛢️", "kind": "equip", "equip": { "barrel": true },
+    "desc": "Khi bị BANG!/Gatling: rút! nếu ra ♥ thì coi như đã né.",
+    "printings": ["S:Q", "S:K"]
+  },
+  "scope": {
+    "name": "Scope", "icon": "🔭", "kind": "equip", "equip": { "distOut": 1 },
+    "desc": "Bạn nhìn mọi người ở khoảng cách -1.",
+    "printings": ["S:A"]
+  },
+  "mustang": {
+    "name": "Mustang", "icon": "🐴", "kind": "equip", "equip": { "distIn": 1 },
+    "desc": "Mọi người nhìn bạn ở khoảng cách +1.",
+    "printings": ["H:8", "H:9"]
+  },
+  "dynamite": {
+    "name": "Dynamite", "icon": "🧨", "kind": "equip", "equip": { "dynamite": true },
+    "desc": "Đầu lượt rút!: ♠2-9 nổ (mất 3 máu), không thì chuyền cho người kế.",
+    "printings": ["H:2"]
+  },
+  "jail": {
+    "name": "Jail", "icon": "⛓️", "kind": "equip", "target": "other", "range": "any", "notSheriff": true,
+    "equip": { "jail": true },
+    "desc": "Đặt lên người khác (trừ Cảnh sát trưởng). Đầu lượt rút! không ra ♥ thì mất lượt.",
+    "printings": ["S:10", "S:J", "H:4"]
+  },
+  "volcanic": {
+    "name": "Volcanic", "icon": "🌋", "kind": "equip", "equip": { "weapon": 1, "unlimitedBang": true },
+    "desc": "Súng tầm 1, được bắn BANG! không giới hạn.",
+    "printings": ["S:10", "C:10"]
+  },
+  "schofield": {
+    "name": "Schofield", "icon": "🔫", "kind": "equip", "equip": { "weapon": 2 },
+    "desc": "Súng tầm 2.",
+    "printings": ["C:J", "C:Q", "S:K"]
+  },
+  "remington": {
+    "name": "Remington", "icon": "🔫", "kind": "equip", "equip": { "weapon": 3 },
+    "desc": "Súng tầm 3.",
+    "printings": ["C:K"]
+  },
+  "carabine": {
+    "name": "Rev. Carabine", "icon": "🔫", "kind": "equip", "equip": { "weapon": 4 },
+    "desc": "Súng tầm 4.",
+    "printings": ["C:A"]
+  },
+  "winchester": {
+    "name": "Winchester", "icon": "🔫", "kind": "equip", "equip": { "weapon": 5 },
+    "desc": "Súng tầm 5.",
+    "printings": ["S:8"]
+  }
+}

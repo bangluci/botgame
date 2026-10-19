@@ -1,0 +1,26 @@
+[
+  { "id": "classic", "name": "Chuẩn", "desc": "Luật gốc của bản cơ bản.", "settings": {} },
+  {
+    "id": "events", "name": "Có sự kiện (High Noon)", "desc": "Mỗi vòng lật 1 lá sự kiện áp dụng cho cả bàn.",
+    "settings": { "rules": { "eventsOn": true } }
+  },
+  {
+    "id": "fast", "name": "Nhanh & hỗn loạn", "desc": "Rút 3, bắn thoải mái, chọn 1 trong 2 nhân vật.",
+    "settings": { "rules": { "drawPerTurn": 3, "bangPerTurn": 0, "startHandExtra": 1, "charChoices": 2, "handLimitBonus": 2 } }
+  },
+  {
+    "id": "tank", "name": "Máu trâu", "desc": "Ai cũng +1 máu, Cảnh sát trưởng +2.",
+    "settings": { "rules": { "lifeBonusAll": 1, "sheriffBonusLife": 2 } }
+  },
+  {
+    "id": "gunfight", "name": "Súng chiến thuần túy", "desc": "Chỉ còn BANG!, Missed!, Beer, Duel, Gatling, Indians và vũ khí.",
+    "settings": {
+      "rules": { "bangPerTurn": 0 },
+      "cardCopies": { "saloon": 0, "wellsfargo": 0, "stagecoach": 0, "generalstore": 0, "panic": 0, "catbalou": 0, "barrel": 0, "scope": 0, "mustang": 0, "dynamite": 0, "jail": 0 }
+    }
+  },
+  {
+    "id": "chaos", "name": "Hỗn chiến sự kiện", "desc": "Sự kiện + rút 3 + chọn nhân vật.",
+    "settings": { "rules": { "eventsOn": true, "drawPerTurn": 3, "charChoices": 3, "bangPerTurn": 2 } }
+  }
+]

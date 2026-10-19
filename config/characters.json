@@ -1,0 +1,18 @@
+{
+  "bart": { "name": "Bart Cassidy", "life": 4, "icon": "🤠", "abilities": ["bart"], "desc": "Mỗi lần mất 1 máu, rút 1 lá." },
+  "blackjack": { "name": "Black Jack", "life": 4, "icon": "🃏", "abilities": ["blackjack"], "desc": "Lá thứ 2 khi rút đầu lượt được lật ra; nếu là ♥/♦ thì rút thêm 1 lá." },
+  "janet": { "name": "Calamity Janet", "life": 4, "icon": "💥", "abilities": ["janet"], "desc": "Dùng BANG! như Missed! và ngược lại." },
+  "gringo": { "name": "El Gringo", "life": 3, "icon": "🧔", "abilities": ["gringo"], "desc": "Mỗi lần bị người khác làm mất máu, rút 1 lá từ tay người đó." },
+  "jesse": { "name": "Jesse Jones", "life": 4, "icon": "🧑‍🌾", "abilities": ["jesse"], "desc": "Lá đầu khi rút có thể lấy ngẫu nhiên từ tay 1 người." },
+  "jourdonnais": { "name": "Jourdonnais", "life": 4, "icon": "🎩", "abilities": ["jourdonnais"], "desc": "Luôn có Barrel (rút! ♥ để né BANG!)." },
+  "kit": { "name": "Kit Carlson", "life": 4, "icon": "🕵️", "abilities": ["kit"], "desc": "Xem 3 lá trên cùng, giữ 2, trả 1 lên trên." },
+  "lucky": { "name": "Lucky Duke", "life": 4, "icon": "🍀", "abilities": ["lucky"], "desc": "Mỗi lần rút! thì lật 2 lá và chọn 1." },
+  "paul": { "name": "Paul Regret", "life": 3, "icon": "🐎", "abilities": ["paul"], "desc": "Luôn có Mustang (mọi người nhìn bạn +1)." },
+  "pedro": { "name": "Pedro Ramirez", "life": 4, "icon": "🧢", "abilities": ["pedro"], "desc": "Lá đầu khi rút có thể lấy từ chồng bài bỏ." },
+  "rose": { "name": "Rose Doolan", "life": 4, "icon": "🌹", "abilities": ["rose"], "desc": "Luôn có Scope (bạn nhìn mọi người -1)." },
+  "sid": { "name": "Sid Ketchum", "life": 4, "icon": "💉", "abilities": ["sid"], "desc": "Bỏ 2 lá bất kỳ để hồi 1 máu (bất cứ lúc nào)." },
+  "slab": { "name": "Slab the Killer", "life": 4, "icon": "💪", "abilities": ["slab"], "desc": "BANG! của anh ta cần 2 Missed! để né." },
+  "suzy": { "name": "Suzy Lafayette", "life": 4, "icon": "💃", "abilities": ["suzy"], "desc": "Hết bài trên tay là rút ngay 1 lá." },
+  "vulture": { "name": "Vulture Sam", "life": 4, "icon": "🦅", "abilities": ["vulture"], "desc": "Ai chết, anh ta lấy hết bài của người đó." },
+  "willy": { "name": "Willy the Kid", "life": 4, "icon": "👦", "abilities": ["willy"], "desc": "Được chơi BANG! không giới hạn." }
+}

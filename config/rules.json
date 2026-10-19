@@ -1,0 +1,20 @@
+[
+  { "key": "sheriffBonusLife", "group": "Máu & bài", "label": "Máu thưởng của Cảnh sát trưởng", "type": "number", "value": 1, "min": 0, "max": 3 },
+  { "key": "lifeBonusAll", "group": "Máu & bài", "label": "Máu cộng thêm cho mọi người", "type": "number", "value": 0, "min": 0, "max": 3 },
+  { "key": "startHandExtra", "group": "Máu & bài", "label": "Bài khởi đầu = máu + số này", "type": "number", "value": 0, "min": -2, "max": 3 },
+  { "key": "drawPerTurn", "group": "Máu & bài", "label": "Số lá rút mỗi đầu lượt", "type": "number", "value": 2, "min": 1, "max": 5 },
+  { "key": "handLimitBonus", "group": "Máu & bài", "label": "Giới hạn bài cuối lượt = máu + số này", "type": "number", "value": 0, "min": -2, "max": 5 },
+  { "key": "handLimitUnlimited", "group": "Máu & bài", "label": "Bỏ giới hạn bài trên tay", "type": "boolean", "value": false },
+
+  { "key": "bangPerTurn", "group": "Chiến đấu", "label": "Số BANG! tối đa mỗi lượt (0 = không giới hạn)", "type": "number", "value": 1, "min": 0, "max": 5 },
+  { "key": "beerDisabledAt", "group": "Chiến đấu", "label": "Beer vô hiệu khi còn ≤ N người (0 = luôn dùng được)", "type": "number", "value": 2, "min": 0, "max": 5 },
+  { "key": "dynamiteDamage", "group": "Chiến đấu", "label": "Sát thương Dynamite", "type": "number", "value": 3, "min": 1, "max": 5 },
+  { "key": "jailEscapeSuit", "group": "Chiến đấu", "label": "Chất thoát khỏi Jail", "type": "select", "value": "H", "options": [["H", "♥ Cơ"], ["D", "♦ Rô"], ["S", "♠ Bích"], ["C", "♣ Chuồn"]] },
+
+  { "key": "charChoices", "group": "Nhân vật & vai trò", "label": "Số nhân vật chia để chọn (1 = ngẫu nhiên)", "type": "number", "value": 1, "min": 1, "max": 4 },
+  { "key": "rewardOutlawKill", "group": "Nhân vật & vai trò", "label": "Thưởng bài khi hạ 1 Outlaw", "type": "number", "value": 3, "min": 0, "max": 5 },
+  { "key": "sheriffPenalty", "group": "Nhân vật & vai trò", "label": "Cảnh sát trưởng giết Deputy thì bỏ hết bài", "type": "boolean", "value": true },
+  { "key": "revealRoleOnDeath", "group": "Nhân vật & vai trò", "label": "Lật vai trò khi chết", "type": "boolean", "value": true },
+
+  { "key": "eventsOn", "group": "Sự kiện", "label": "Dùng lá sự kiện (mỗi vòng lật 1 lá, kiểu High Noon)", "type": "boolean", "value": false }
+]

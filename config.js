@@ -6,7 +6,7 @@ const path = require('path');
 const DIR = path.join(__dirname, 'config');
 const CUSTOM = path.join(__dirname, 'custom');
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-const EFFECTS = new Set(['bang', 'heal', 'draw', 'steal', 'aoe', 'duel', 'store']);
+const EFFECTS = new Set(['bang', 'heal', 'draw', 'steal', 'aoe', 'duel', 'store', 'brawl']);
 const ABILITIES = new Set(['bart', 'blackjack', 'janet', 'gringo', 'jesse', 'jourdonnais', 'kit', 'lucky', 'paul', 'pedro', 'rose', 'sid', 'slab', 'suzy', 'vulture', 'willy',
   'pixie', 'bill', 'sean', 'tequila', 'greg', 'herb', 'elena', 'chuck', 'doc', 'jose', 'pat', 'vera', 'belle', 'apache', 'molly']); // dòng 2: Dodge City
 // Bộ mở rộng -> luật bật nó. Lá/nhân vật có "set" chỉ vào ván khi luật đó bật; "extra": { set: [printings] } thêm bản in của bộ đó.
@@ -82,12 +82,16 @@ function validate(cfg) {
     for (const f of ['amount', 'n', 'damage']) intField(where, e, f, 1, 5);
     if (e.type === 'aoe' && !['bang', 'missed'].includes(e.respond)) throw new Error(`${where}: aoe cần "respond": "bang" hoặc "missed"`);
     if (e.type === 'steal' && !['take', 'discard'].includes(e.mode)) throw new Error(`${where}: steal cần "mode": "take" hoặc "discard"`);
+    if (e.type === 'heal' && e.who !== undefined && e.who !== 'all' && e.who !== 'target') throw new Error(`${where}: heal.who phải là "all" hoặc "target"`);
   };
   for (const [k, c] of Object.entries(cfg.cards)) {
     const w = `Lá "${k}"`;
     if (!c.name) throw new Error(`${w} thiếu "name"`);
-    if (c.kind !== 'action' && c.kind !== 'equip') throw new Error(`${w}: kind phải là "action" hoặc "equip"`);
-    if (c.target !== undefined && c.target !== 'other' && c.target !== 'self') throw new Error(`${w}: target phải là "other" hoặc "self"`);
+    if (!['action', 'equip', 'green'].includes(c.kind)) throw new Error(`${w}: kind phải là "action", "equip" hoặc "green"`);
+    if (c.target !== undefined && !['other', 'self', 'any'].includes(c.target)) throw new Error(`${w}: target phải là "other", "self" hoặc "any"`);
+    if (c.target === 'any' && c.kind !== 'action') throw new Error(`${w}: target "any" chỉ dùng cho lá hành động`);
+    intField(w, c, 'cost', 0, 1); intField(w, c, 'reactDraw', 1, 3);
+    if (c.free !== undefined && typeof c.free !== 'boolean') throw new Error(`${w}: free phải là true/false`);
     if (c.range !== undefined && c.range !== 'weapon' && c.range !== 'any' && !isInt(c.range, 1, 10)) throw new Error(`${w}: range phải là "weapon", "any" hoặc số 1…10`);
     if (c.react !== undefined && c.react !== 'bang' && c.react !== 'missed') throw new Error(`${w}: react phải là "bang" hoặc "missed"`);
     if (!Array.isArray(c.printings)) throw new Error(`${w}: cần "printings" (mảng)`);
@@ -102,6 +106,20 @@ function validate(cfg) {
       if (c.effect.some((e) => ['bang', 'duel', 'steal'].includes(e.type)) && c.target !== 'other') throw new Error(`${w}: hiệu ứng bang/duel/steal cần "target": "other"`);
       if (c.effect.filter((e) => e.type === 'steal').length > 1) throw new Error(`${w}: mỗi lá chỉ được 1 hiệu ứng steal`);
     }
+    // lá xanh lá: đặt trước mặt, từ lượt sau mới dùng "use" (lượt mình) hoặc react "missed" (đỡ đòn ngoài lượt)
+    if (c.kind === 'green') {
+      if (c.effect !== undefined || c.equip !== undefined || c.cost !== undefined) throw new Error(`${w}: lá xanh lá dùng "use"/"react", không có effect/equip/cost`);
+      if (c.react !== undefined && c.react !== 'missed') throw new Error(`${w}: lá xanh lá chỉ react "missed"`);
+      if (c.use !== undefined) {
+        if (!Array.isArray(c.use) || !c.use.length) throw new Error(`${w}: use phải là mảng hiệu ứng`);
+        c.use.forEach((e) => eff(w, e));
+        if (c.use.some((e) => ['bang', 'duel', 'steal'].includes(e.type)) && c.target !== 'other') throw new Error(`${w}: hiệu ứng bang/duel/steal cần "target": "other"`);
+        if (c.use.filter((e) => e.type === 'steal').length > 1) throw new Error(`${w}: mỗi lá chỉ được 1 hiệu ứng steal`);
+      }
+      if (!c.use && c.react !== 'missed') throw new Error(`${w}: lá xanh lá cần "use" hoặc "react": "missed"`);
+      if ((c.use || []).some((e) => e.type === 'heal' && e.who === 'target')) throw new Error(`${w}: lá xanh lá không hồi máu cho người khác`);
+    } else if (c.use !== undefined) throw new Error(`${w}: "use" chỉ dành cho lá xanh lá`);
+    if ((c.effect || []).some((e) => e.type === 'heal' && e.who === 'target') && c.target !== 'any' && c.target !== 'other') throw new Error(`${w}: heal who "target" cần "target": "any" hoặc "other"`);
     if (c.kind === 'equip' && (!c.equip || typeof c.equip !== 'object')) throw new Error(`${w}: thiếu "equip"`);
     if (c.equip) { intField(w, c.equip, 'weapon', 1, 10); intField(w, c.equip, 'distIn', -3, 3); intField(w, c.equip, 'distOut', -3, 3); }
     if (c.kind === 'action' && c.playable !== 'never' && !(c.effect && c.effect.length)) throw new Error(`Lá "${k}": cần "effect" hoặc "playable":"never"`);

@@ -9,6 +9,7 @@ export const st = {
     sel: null, // { id, asBang } lá đang chọn trong lượt
     zone: null, // { card, target } đang chọn lấy lá nào của mục tiêu (Panic/Cat Balou)
     multi: null, // { name, ids: [] } đang chọn lá (rồi mục tiêu) cho kỹ năng chủ động name
+    use: null, // id lá xanh lá trên bàn đang chọn mục tiêu để dùng
     modal: null, // 'help' | 'emote' | 'info' | 'log' | null
     info: null, // { kind: 'card'|'char'|'player', key, id }
     tab: 'rules', adv: '', advErr: '',
@@ -45,7 +46,7 @@ export async function post(path, body = {}) {
   return j;
 }
 
-export function clearSel() { st.ui.sel = null; st.ui.zone = null; st.ui.multi = null; }
+export function clearSel() { st.ui.sel = null; st.ui.zone = null; st.ui.multi = null; st.ui.use = null; }
 export async function act(action) {
   try { await post('action', { action }); clearSel(); } catch (e) { clearSel(); toast(e.message, 'err'); }
   rerender();

@@ -1,6 +1,6 @@
 'use strict';
 // Đòn đánh và hậu quả: rút!, sát thương, sắp chết, bị loại (Vulture Sam chia bài), xét thắng, đỡ đòn, BANG!, Duel.
-const { OVER, SYM, rnd, cdef, pubCard, cname, say, alive, ab, gear, prompt, nextAlive, othersFrom, beerAmount, beersFor, popDeck, drawCards, takeHand, heal, mollyCard, molly } = require('./rules');
+const { ready, takeTable, OVER, SYM, rnd, cdef, pubCard, cname, say, alive, ab, gear, prompt, nextAlive, othersFrom, beerAmount, beersFor, popDeck, drawCards, takeHand, heal, mollyCard, molly } = require('./rules');
 const { checkAbility, useAbility, abilitiesFor, asAbility } = require('./abilities');
 
 // ---------- rút! ----------
@@ -71,6 +71,19 @@ function* vultureSplit(g, t, vul, hand, table) {
     say(g, `🦅 ${q.name} lấy ${id === 'hand' ? '1 lá trên tay' : cname(g, c)} của ${t.name} (Vulture Sam).`);
   }
 }
+// Dodge City 3 người: Deputy → Renegade → Outlaw → Deputy. Tự tay hạ đúng mục tiêu thì thắng ngay;
+// mục tiêu chết bởi người/thứ khác thì 2 người còn lại đấu tới cuối (checkWin lo). Hạ ai cũng rút thưởng.
+const PREY = { deputy: 'renegade', renegade: 'outlaw', outlaw: 'deputy' };
+function* threeKill(g, t, src) {
+  if (!src || src === t || !src.alive) return;
+  if (g.rules.rewardOutlawKill) { drawCards(g, src, g.rules.rewardOutlawKill); say(g, `${src.name} hạ ${t.name} và rút ${g.rules.rewardOutlawKill} lá.`); }
+  if (PREY[src.role] === t.role && !g.threeFfa) {
+    g.winner = { team: src.role, text: `${ROLE_VI[src.role]} thắng — tự tay hạ ${ROLE_VI[t.role]}!`, players: [src.id] };
+    say(g, `🏆 ${g.winner.text}`);
+    throw OVER;
+  }
+  g.threeFfa = true; // mục tiêu của ai đó đã chết không đúng tay: từ giờ ai sống sót cuối cùng thắng
+}
 function* die(g, t, src) {
   t.alive = false; t.life = Math.min(0, t.life);
   say(g, `☠️ ${t.name} (${g.cfg.characters[t.char].name}) bị loại! Vai trò: ${ROLE_VI[t.role]}.`);
@@ -81,7 +94,8 @@ function* die(g, t, src) {
   if (!vul.length || !(hand.length + table.length)) g.discard.push(...hand, ...table);
   else if (vul.length === 1) { vul[0].hand.push(...hand, ...table); say(g, `🦅 ${vul[0].name} nhặt ${hand.length + table.length} lá của ${t.name} (Vulture Sam).`); }
   else yield* vultureSplit(g, t, vul, hand, table);
-  if (src && src !== t && src.alive) {
+  if (g.threeP) yield* threeKill(g, t, src);
+  if (src && src !== t && src.alive && !g.threeP) {
     if (t.role === 'outlaw' && g.rules.rewardOutlawKill) { drawCards(g, src, g.rules.rewardOutlawKill); say(g, `${src.name} hạ Outlaw và rút ${g.rules.rewardOutlawKill} lá.`); }
     if (src.role === 'sheriff' && t.role === 'deputy' && g.rules.sheriffPenalty) {
       src.hand.concat(src.table).forEach((c) => g.discard.push(c)); src.hand = []; src.table = [];
@@ -113,12 +127,15 @@ function checkWin(g) {
 }
 
 // ---------- đỡ đòn ----------
+// Lá đỡ được: trên tay (lá xanh lá phải đặt xuống trước) + lá xanh lá có Missed! trên bàn đã qua lượt đặt (Belle Star tắt).
 function respondCards(g, p, kind) {
-  if (kind === 'missed' && ab(g, p, 'elena')) return p.hand.slice(); // Elena Fuente: lá nào cũng dùng như Missed!
-  return p.hand.filter((c) => {
-    const r = cdef(g, c).react;
+  const table = kind === 'missed' ? gear(g, p).filter((c) => cdef(g, c).kind === 'green' && cdef(g, c).react === 'missed' && ready(g, c)) : [];
+  if (kind === 'missed' && ab(g, p, 'elena')) return [...p.hand, ...table]; // Elena Fuente: lá nào trên tay cũng dùng như Missed!
+  return [...p.hand.filter((c) => {
+    const d = cdef(g, c), r = d.react;
+    if (d.kind === 'green') return false;
     return r === kind || (ab(g, p, 'janet') && (r === 'bang' || r === 'missed') && (kind === 'bang' || kind === 'missed'));
-  });
+  }), ...table];
 }
 // Trả về true nếu né được. `need` = số lần đỡ cần; `barrel` = có được dùng Barrel không.
 function* defend(g, src, t, kind, { need = 1, barrel = false, why = '', used = null } = {}) {
@@ -138,9 +155,12 @@ function* defend(g, src, t, kind, { need = 1, barrel = false, why = '', used = n
       if (act.type !== 'respond' || !respondCards(g, t, kind).some((c) => c.id === act.card)) throw new Error(`Hãy chọn 1 lá ${what} trong tay hoặc bấm "Chịu đòn"`);
     });
     if (a.type === 'pass') break;
-    const c = takeHand(g, t, a.card); g.discard.push(c); need--;
-    say(g, `🛡️ ${t.name} đỡ bằng ${cname(g, c)}`);
-    if (mollyCard(g, c)) mo++;
+    const fromHand = t.hand.some((x) => x.id === a.card);
+    const c = fromHand ? takeHand(g, t, a.card) : takeTable(t, a.card); g.discard.push(c); need--;
+    say(g, `🛡️ ${t.name} đỡ bằng ${cname(g, c)}${fromHand ? '' : ' (lá trên bàn)'}`);
+    if (fromHand && mollyCard(g, c)) mo++;
+    const extra = cdef(g, c).reactDraw; // Dodge, Bible: đỡ xong rút thêm
+    if (extra && t.alive) { const got = drawCards(g, t, extra); if (got.length) say(g, `${t.name} rút ${got.length} lá (${cdef(g, c).name}).`); }
   }
   if (used) used.set(t, (used.get(t) || 0) + mo); else molly(g, t, mo);
   return need <= 0;

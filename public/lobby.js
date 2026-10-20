@@ -138,7 +138,7 @@ function cardsTab(s, dis) {
   const total = st.meta.cards.reduce((t, c) => t + printed(s, c) * (s.cardCopies[c.key] !== undefined ? s.cardCopies[c.key] : 1), 0);
   return `<p class="hint">Số bản sao của từng loại lá (0 = bỏ khỏi bộ, 2 = nhân đôi). Tổng bộ bài: <b>${total}</b> lá.</p><div class="cardrows">${st.meta.cards.map((c) => {
     const n = s.cardCopies[c.key] !== undefined ? s.cardCopies[c.key] : 1;
-    return `<div class="cardrow ${n && setOn(s, c.set) ? '' : 'off'}"><span class="cr-icon ${c.kind === 'equip' ? 'k-equip' : ''}">${esc(c.icon)}</span><span class="cr-name"><b>${esc(c.name)}${setTag(c.set)}</b><small>×${printed(s, c)} · ${esc(c.desc)}</small></span>
+    return `<div class="cardrow ${n && setOn(s, c.set) ? '' : 'off'}"><span class="cr-icon ${c.kind === 'equip' ? 'k-equip' : c.kind === 'green' ? 'k-green' : ''}">${esc(c.icon)}</span><span class="cr-name"><b>${esc(c.name)}${setTag(c.set)}</b><small>×${printed(s, c)} · ${esc(c.desc)}</small></span>
       <span class="stepper"><button class="icon-btn" data-a="copies" data-k="${esc(c.key)}" data-d="-1" ${dis || (n <= 0 ? 'disabled' : '')} aria-label="Bớt">−</button><output>${n}</output><button class="icon-btn" data-a="copies" data-k="${esc(c.key)}" data-d="1" ${dis || (n >= 6 ? 'disabled' : '')} aria-label="Thêm">+</button></span></div>`;
   }).join('')}</div>`;
 }

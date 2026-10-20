@@ -2,7 +2,7 @@
 // AI cho bot BANG!: chỉ đọc view công khai (engine.viewFor), suy luận vai qua view.last (ai đánh ai).
 // rank(view, mem) → danh sách action theo ưu tiên; decide() lấy cái hợp lệ đầu tiên.
 
-const VAL = { missed: 9, beer: 8, bang: 7, barrel: 7, wellsfargo: 7, stagecoach: 6, panic: 6, catbalou: 6, duel: 5, gatling: 5, indians: 5, mustang: 5, hideout: 5, binocular: 4, winchester: 4, jail: 4, scope: 4, generalstore: 4, saloon: 3, volcanic: 3, schofield: 3, remington: 3, carabine: 3, dynamite: 0 };
+const VAL = { dodge: 9, bible: 8, sombrero: 7, tengallonhat: 7, ironplate: 7, derringer: 7, buffalorifle: 7, ponyexpress: 7, canteen: 6, cancan: 6, conestoga: 6, knife: 6, pepperbox: 6, howitzer: 6, punch: 6, springfield: 6, whisky: 6, tequila: 5, brawl: 5, ragtime: 5, missed: 9, beer: 8, bang: 7, barrel: 7, wellsfargo: 7, stagecoach: 6, panic: 6, catbalou: 6, duel: 5, gatling: 5, indians: 5, mustang: 5, hideout: 5, binocular: 4, winchester: 4, jail: 4, scope: 4, generalstore: 4, saloon: 3, volcanic: 3, schofield: 3, remington: 3, carabine: 3, dynamite: 0 };
 const GUN = { volcanic: 1, schofield: 2, remington: 3, carabine: 4, winchester: 5 };
 const GOOD_EQUIP = ['barrel', 'mustang', 'scope', 'binocular', 'hideout'];
 const DRAW = ['wellsfargo', 'stagecoach', 'generalstore'];
@@ -41,8 +41,10 @@ function observe(v, mem) {
 }
 
 // > 0 = kẻ địch muốn đánh, < 0 = đồng minh.
+const PREY = { deputy: 'renegade', renegade: 'outlaw', outlaw: 'deputy' }; // Dodge City 3 người
 function score(v, mem, p) {
   const r = v.me.role, sus = mem.sus[p.id] || 0;
+  if (v.threeP) return p.role === PREY[r] ? 10 : 1; // ai cũng là địch, ưu tiên đúng mục tiêu
   if (p.role === 'sheriff') return r === 'outlaw' || (r === 'renegade' && v.players.filter((x) => x.alive).length <= 2) ? 10 : -99;
   if (r === 'outlaw') return -sus;
   const deadOut = v.players.filter((x) => !x.alive && x.role === 'outlaw').length;
@@ -70,8 +72,23 @@ function playList(v, mem, self, others, sc) {
     if (GOOD_EQUIP.includes(c.key) && !self.table.some((t) => t.key === c.key)) out.push(P(c));
     if (c.key === 'dynamite' && (me.role === 'outlaw' || me.role === 'renegade' || self.life >= 4)) out.push(P(c));
   }
+  // lá xanh lá: đặt ra sớm (lượt sau mới dùng được)
+  for (const c of has((c, d) => d.kind === 'green')) if (!self.table.some((t) => t.key === c.key)) out.push(P(c));
+  // lá "+1": bỏ kèm lá rẻ nhất khác
+  const extraFor = (c) => { const lo = byVal(v, me.hand.filter((x) => x.id !== c.id)); return lo.length ? { extra: lo[0].id } : null; };
+  const costly = (key) => has((c) => c.key === key).map((c) => [c, extraFor(c)]).filter(([, x]) => x);
+  // lá xanh lá dùng được ngay (engine gửi me.greens)
+  const greens = me.greens || [], gKey = (gr) => (self.table.find((t) => t.id === gr.id) || {}).key;
+  const U = (gr, extra) => ({ type: 'use', card: gr.id, ...extra });
+  for (const gr of greens.filter((x) => x.self)) {
+    const k = gKey(gr);
+    if (k === 'canteen' ? self.life < self.maxLife : k === 'howitzer' ? enemies.length >= allies.length : true) out.push(U(gr));
+  }
   // hồi máu
   if (self.life < self.maxLife) out.push(...has((c, d) => d.isBeer).map((c) => P(c)));
+  if (self.life <= self.maxLife - 2) out.push(...costly('whisky').map(([c, x]) => P(c, x)));
+  const hurtAlly = [self, ...allies].filter((p) => p.life < p.maxLife).sort((a, b) => a.life - b.life)[0];
+  if (hurtAlly) out.push(...costly('tequila').map(([c, x]) => P(c, { ...x, target: hurtAlly.id })));
   const lost = (ps) => ps.reduce((s, p) => s + p.maxLife - p.life, 0);
   if (lost([self, ...allies]) > lost(enemies)) out.push(...has((c) => c.key === 'saloon').map((c) => P(c)));
   // tấn công theo thứ tự kẻ địch
@@ -82,6 +99,14 @@ function playList(v, mem, self, others, sc) {
     for (const c of has((c, d) => d.steal)) out.push(...loot(e).map((t) => P(c, { target: e.id, zone: 'table', cardId: t.id })), P(c, { target: e.id, zone: 'hand' }));
     if (bangs.length >= 2 || e.hand <= 1) out.push(...has((c) => c.key === 'duel').map((c) => P(c, { target: e.id })));
     out.push(...bangs.map((c) => P(c, { target: e.id })));
+    for (const [c, x] of [...costly('springfield'), ...costly('ragtime')]) {
+      if (c.key === 'ragtime') out.push(...loot(e).map((t) => P(c, { ...x, target: e.id, zone: 'table', cardId: t.id })), P(c, { ...x, target: e.id, zone: 'hand' }));
+      else out.push(P(c, { ...x, target: e.id }));
+    }
+    for (const gr of greens.filter((x) => x.targets.includes(e.id))) { // Knife, Derringer, Conestoga, Can Can…
+      if (['conestoga', 'cancan'].includes(gKey(gr))) out.push(...loot(e).map((t) => U(gr, { target: e.id, zone: 'table', cardId: t.id })), U(gr, { target: e.id, zone: 'hand' }));
+      else out.push(U(gr, { target: e.id }));
+    }
     if (v.janet && missed.length >= 2) out.push(P(missed[0], { target: e.id, as: 'bang' })); // giữ lại 1 Missed! để đỡ
     // Doc Holyday: bỏ 2 lá rẻ nhất để bắn thêm; bắn Apache Kid thì cặp lá không được toàn ♦
     const doc = abil(v, 'doc');
@@ -91,7 +116,7 @@ function playList(v, mem, self, others, sc) {
       out.push({ type: 'ability', name: 'doc', cards: pair.map((c) => c.id), target: e.id });
     }
   }
-  if (enemies.length && enemies.length >= allies.length && !allies.some((p) => p.life <= 1)) out.push(...has((c) => AOE.includes(c.key)).map((c) => P(c)));
+  if (enemies.length && enemies.length >= allies.length && !allies.some((p) => p.life <= 1)) out.push(...has((c) => AOE.includes(c.key)).map((c) => P(c)), ...costly('brawl').map(([c, x]) => P(c, x)));
   // Sid: dư bài thì đổi 2 lá rẻ lấy 1 máu
   if (abil(v, 'sid') && me.hand.length > self.life + 1) { const lo = byVal(v, me.hand); out.push({ type: 'ability', name: 'sid', cards: [lo[0].id, lo[1].id] }); }
   // José Delgado: lá trang bị còn lại trên tay (không đáng đặt ra) đổi lấy 2 lá
@@ -116,7 +141,8 @@ function rank(v, mem) {
       const usable = new Set(me.usable || []);
       const ok = (c) => { const r = (D[c.key] || {}).react; return usable.has(c.id) || r === pr.kind || (v.janet && (r === 'bang' || r === 'missed')); };
       const exact = (c) => ((D[c.key] || {}).react === pr.kind ? 0 : 1);
-      return [...lo.filter(ok).sort((a, b) => exact(a) - exact(b)).map((c) => ({ type: 'respond', card: c.id })), { type: 'pass' }];
+      const onTable = [...usable].filter((id) => !me.hand.some((c) => c.id === id)); // lá xanh lá có Missed! trên bàn
+      return [...onTable.map((id) => ({ type: 'respond', card: id })), ...lo.filter(ok).sort((a, b) => exact(a) - exact(b)).map((c) => ({ type: 'respond', card: c.id })), { type: 'pass' }];
     }
     case 'dying': return [...me.hand.filter((c) => (D[c.key] || {}).isBeer).map((c) => ({ type: 'beer', card: c.id })),
       ...(abil(v, 'sid') && lo.length >= 2 ? [{ type: 'sid', cards: [lo[0].id, lo[1].id] }] : []), { type: 'pass' }];
@@ -134,6 +160,12 @@ function rank(v, mem) {
         const take = pr.options.filter((o) => o.card && o.pid !== self.id && val(v, o.card) >= 5 && sc(v.players.find((p) => p.id === o.pid)) > 0)
           .sort((a, b) => val(v, b.card) - val(v, a.card));
         return [...take.map((o) => ({ type: 'choice', id: o.id })), { type: 'choice', id: 'deck' }];
+      }
+      if (pr.kind === 'brawl') {
+        const t = v.players.find((p) => p.id === pr.target), foe = t && sc(t) > 0;
+        const table = pr.options.filter((o) => o.card).sort((a, b) => val(v, foe ? b.card : a.card) - val(v, foe ? a.card : b.card));
+        const hand = pr.options.filter((o) => o.id === 'hand');
+        return [...(foe ? [...table.filter((o) => val(v, o.card) >= 5), ...hand] : [...hand, ...table]), ...pr.options].map((o) => ({ type: 'choice', id: o.id }));
       }
       if (pr.kind === 'vulture') { // lá tốt trên bàn trước, không thì bốc ngẫu nhiên trên tay
         const good = pr.options.filter((o) => o.card && val(v, o.card) >= 5).sort((a, b) => val(v, b.card) - val(v, a.card));

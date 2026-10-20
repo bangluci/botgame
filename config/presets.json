@@ -24,7 +24,7 @@
     "settings": { "rules": { "eventsOn": true, "drawPerTurn": 3, "charChoices": 3, "bangPerTurn": 2 } }
   },
   {
-    "id": "dodgecity", "name": "Dodge City", "desc": "Bản cơ bản + 15 nhân vật và 18 lá của bộ mở rộng Dodge City.",
+    "id": "dodgecity", "name": "Dodge City", "desc": "Bản cơ bản + 15 nhân vật và 40 lá của bộ mở rộng Dodge City.",
     "settings": { "rules": { "dodgeCity": true } }
   }
 ]

@@ -142,5 +142,120 @@
     "name": "Hideout", "icon": "🏚️", "kind": "equip", "equip": { "distIn": 1 }, "set": "dodgecity",
     "desc": "Mọi người nhìn bạn ở khoảng cách +1. Dùng chung được với Mustang.",
     "printings": ["D:K"]
+  },
+  "punch": {
+    "name": "Punch", "icon": "👊", "kind": "action", "set": "dodgecity", "target": "other", "range": 1, "free": true,
+    "effect": [{ "type": "bang" }],
+    "desc": "BANG! vào người ở khoảng cách 1. Không tính vào giới hạn BANG! mỗi lượt.",
+    "printings": ["S:10"]
+  },
+  "dodge": {
+    "name": "Dodge", "icon": "🤸", "kind": "action", "set": "dodgecity", "react": "missed", "playable": "never", "reactDraw": 1,
+    "desc": "Như Missed!: đỡ mọi đòn có ký hiệu BANG!. Đỡ xong rút 1 lá.",
+    "printings": ["D:7", "H:K"]
+  },
+  "springfield": {
+    "name": "Springfield", "icon": "🎯", "kind": "action", "set": "dodgecity", "target": "other", "range": "any", "free": true, "cost": 1,
+    "effect": [{ "type": "bang" }],
+    "desc": "Bỏ kèm 1 lá: BANG! vào người ở bất kỳ khoảng cách nào, không tính giới hạn.",
+    "printings": ["S:K"]
+  },
+  "tequila": {
+    "name": "Tequila", "icon": "🍹", "kind": "action", "set": "dodgecity", "target": "any", "cost": 1,
+    "effect": [{ "type": "heal", "amount": 1, "who": "target" }],
+    "desc": "Bỏ kèm 1 lá: chọn 1 người bất kỳ (kể cả mình) hồi 1 máu.",
+    "printings": ["C:9"]
+  },
+  "whisky": {
+    "name": "Whisky", "icon": "🍾", "kind": "action", "set": "dodgecity", "target": "self", "cost": 1,
+    "effect": [{ "type": "heal", "amount": 2 }],
+    "desc": "Bỏ kèm 1 lá: bạn hồi 2 máu.",
+    "printings": ["H:Q"]
+  },
+  "brawl": {
+    "name": "Brawl", "icon": "🤼", "kind": "action", "set": "dodgecity", "cost": 1,
+    "effect": [{ "type": "brawl" }],
+    "desc": "Bỏ kèm 1 lá: mọi người khác bỏ 1 lá — bạn chọn với từng người (1 lá ngẫu nhiên trên tay hoặc 1 lá trên bàn).",
+    "printings": ["S:J"]
+  },
+  "ragtime": {
+    "name": "Rag Time", "icon": "🎹", "kind": "action", "set": "dodgecity", "target": "other", "range": "any", "cost": 1,
+    "effect": [{ "type": "steal", "mode": "take" }],
+    "desc": "Bỏ kèm 1 lá: như Panic! nhưng không giới hạn khoảng cách.",
+    "printings": ["H:9"]
+  },
+  "bible": {
+    "name": "Bible", "icon": "📖", "kind": "green", "set": "dodgecity", "react": "missed", "reactDraw": 1,
+    "desc": "Lá xanh lá: đặt trước mặt, từ lượt sau bỏ đi để đỡ 1 đòn BANG! như Missed!, rồi rút 1 lá.",
+    "printings": ["H:10"]
+  },
+  "tengallonhat": {
+    "name": "Ten Gallon Hat", "icon": "🤠", "kind": "green", "set": "dodgecity", "react": "missed",
+    "desc": "Lá xanh lá: đặt trước mặt, từ lượt sau bỏ đi để đỡ 1 đòn BANG! như Missed!.",
+    "printings": ["D:J"]
+  },
+  "ironplate": {
+    "name": "Iron Plate", "icon": "🛡️", "kind": "green", "set": "dodgecity", "react": "missed",
+    "desc": "Lá xanh lá: đặt trước mặt, từ lượt sau bỏ đi để đỡ 1 đòn BANG! như Missed!.",
+    "printings": ["D:A", "S:Q"]
+  },
+  "sombrero": {
+    "name": "Sombrero", "icon": "👒", "kind": "green", "set": "dodgecity", "react": "missed",
+    "desc": "Lá xanh lá: đặt trước mặt, từ lượt sau bỏ đi để đỡ 1 đòn BANG! như Missed!.",
+    "printings": ["C:7"]
+  },
+  "canteen": {
+    "name": "Canteen", "icon": "🧉", "kind": "green", "set": "dodgecity",
+    "use": [{ "type": "heal", "amount": 1 }],
+    "desc": "Lá xanh lá: từ lượt sau, trong lượt mình bỏ đi để hồi 1 máu.",
+    "printings": ["H:7"]
+  },
+  "ponyexpress": {
+    "name": "Pony Express", "icon": "📮", "kind": "green", "set": "dodgecity",
+    "use": [{ "type": "draw", "n": 3 }],
+    "desc": "Lá xanh lá: từ lượt sau, trong lượt mình bỏ đi để rút 3 lá.",
+    "printings": ["D:Q"]
+  },
+  "cancan": {
+    "name": "Can Can", "icon": "🩰", "kind": "green", "set": "dodgecity", "target": "other", "range": "any",
+    "use": [{ "type": "steal", "mode": "discard" }],
+    "desc": "Lá xanh lá: từ lượt sau, bỏ đi để buộc 1 người bất kỳ bỏ 1 lá (như Cat Balou, không giới hạn khoảng cách).",
+    "printings": ["C:J"]
+  },
+  "conestoga": {
+    "name": "Conestoga", "icon": "🛞", "kind": "green", "set": "dodgecity", "target": "other", "range": "any",
+    "use": [{ "type": "steal", "mode": "take" }],
+    "desc": "Lá xanh lá: từ lượt sau, bỏ đi để lấy 1 lá của người bất kỳ (như Panic!, không giới hạn khoảng cách).",
+    "printings": ["D:9"]
+  },
+  "knife": {
+    "name": "Knife", "icon": "🔪", "kind": "green", "set": "dodgecity", "target": "other", "range": 1, "free": true,
+    "use": [{ "type": "bang" }],
+    "desc": "Lá xanh lá: từ lượt sau, bỏ đi để BANG! người ở khoảng cách 1.",
+    "printings": ["H:8"]
+  },
+  "derringer": {
+    "name": "Derringer", "icon": "💥", "kind": "green", "set": "dodgecity", "target": "other", "range": 1, "free": true,
+    "use": [{ "type": "bang" }, { "type": "draw", "n": 1 }],
+    "desc": "Lá xanh lá: từ lượt sau, bỏ đi để BANG! người ở khoảng cách 1, rồi rút 1 lá.",
+    "printings": ["S:7"]
+  },
+  "pepperbox": {
+    "name": "Pepperbox", "icon": "🌶️", "kind": "green", "set": "dodgecity", "target": "other", "range": "weapon", "free": true,
+    "use": [{ "type": "bang" }],
+    "desc": "Lá xanh lá: từ lượt sau, bỏ đi để BANG! người trong tầm súng.",
+    "printings": ["H:A"]
+  },
+  "buffalorifle": {
+    "name": "Buffalo Rifle", "icon": "🦬", "kind": "green", "set": "dodgecity", "target": "other", "range": "any", "free": true,
+    "use": [{ "type": "bang" }],
+    "desc": "Lá xanh lá: từ lượt sau, bỏ đi để BANG! người ở bất kỳ khoảng cách nào.",
+    "printings": ["C:Q"]
+  },
+  "howitzer": {
+    "name": "Howitzer", "icon": "💣", "kind": "green", "set": "dodgecity",
+    "use": [{ "type": "aoe", "respond": "missed", "damage": 1, "barrel": true }],
+    "desc": "Lá xanh lá: từ lượt sau, bỏ đi để bắn như Gatling (mọi người khác đỡ bằng Missed! hoặc mất 1 máu).",
+    "printings": ["S:9"]
   }
 }

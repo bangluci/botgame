@@ -21,6 +21,7 @@ function candidates(g, pid) {
   const pr = v.pending;
   const me = v.me;
   const others = v.players.filter((p) => p.id !== pid && p.alive);
+  const mine = v.players.find((p) => p.id === pid);
   const out = [];
   switch (pr.type) {
     case 'play':
@@ -33,11 +34,26 @@ function candidates(g, pid) {
           for (const t of o.table) out.push({ type: 'play', card: c.id, target: o.id, zone: 'table', cardId: t.id });
         }
         out.push({ type: 'play', card: c.id, as: 'bang', target: rnd(others).id });
+        const ex = me.hand.find((x) => x.id !== c.id); // lá "+1" (Dodge City): bỏ kèm 1 lá khác
+        if (ex) {
+          out.push({ type: 'play', card: c.id, extra: ex.id }, { type: 'play', card: c.id, extra: ex.id, target: pid });
+          for (const o of others) {
+            out.push({ type: 'play', card: c.id, extra: ex.id, target: o.id }, { type: 'play', card: c.id, extra: ex.id, target: o.id, zone: 'hand' });
+            for (const t of o.table) out.push({ type: 'play', card: c.id, extra: ex.id, target: o.id, zone: 'table', cardId: t.id });
+          }
+        }
+      }
+      for (const c of mine.table) { // lá xanh lá trên bàn
+        out.push({ type: 'use', card: c.id });
+        for (const o of others) {
+          out.push({ type: 'use', card: c.id, target: o.id }, { type: 'use', card: c.id, target: o.id, zone: 'hand' });
+          for (const t of o.table) out.push({ type: 'use', card: c.id, target: o.id, zone: 'table', cardId: t.id });
+        }
       }
       if (me.hand.length >= 2) out.push({ type: 'ability', cards: [me.hand[0].id, me.hand[1].id] }); // action Sid cũ không có name
       out.push(...abilityActs(me));
       break;
-    case 'respond': out.push({ type: 'pass' }); for (const c of me.hand) out.push({ type: 'respond', card: c.id }); break;
+    case 'respond': out.push({ type: 'pass' }); for (const c of [...me.hand, ...mine.table]) out.push({ type: 'respond', card: c.id }); break;
     case 'dying': out.push({ type: 'pass' }, ...abilityActs(me)); for (const c of me.hand) out.push({ type: 'beer', card: c.id }); if (me.hand.length >= 2) out.push({ type: 'sid', cards: [me.hand[0].id, me.hand[1].id] }); break;
     case 'pick': for (const c of pr.cards) out.push({ type: 'pick', card: c.id }); break;
     case 'kit': for (const c of pr.cards) out.push({ type: 'back', card: c.id }); break;
@@ -118,6 +134,7 @@ const variants = [
   { rules: { eventsOn: true }, cardCopies: { dynamite: 3, jail: 3, panic: 2 } },
   { rules: { handLimitBonus: -2 }, charactersOff: meta.characters.map((c) => c.key).filter((k) => !['suzy', 'sid', 'vulture', 'janet', 'slab', 'lucky', 'kit', 'jesse', 'pedro', 'bart'].includes(k)) },
   meta.presets.find((p) => p.id === 'dodgecity').settings,
+  { rules: { dodgeCity: true }, cardCopies: { knife: 3, derringer: 3, ponyexpress: 2, howitzer: 2, sombrero: 3, bible: 3, conestoga: 2, cancan: 2, springfield: 3, brawl: 3, tequila: 3, whisky: 2, ragtime: 2, dodge: 2, punch: 2 } }, // dồn lá Dodge City phần 3
   { rules: { dodgeCity: true, eventsOn: true, handLimitBonus: -2, charChoices: 2 }, charactersOff: meta.characters.filter((c) => !c.set).map((c) => c.key).slice(0, 10) }, // dồn về nhân vật Dodge City
   { // cơ chế tuỳ chỉnh: lá nhiều hiệu ứng, nhân vật mới, sự kiện mới, chế độ không Sheriff
     rules: { eventsOn: true },

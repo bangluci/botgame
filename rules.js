@@ -31,6 +31,9 @@ const tableSum = (p, g, f) => gear(g, p).reduce((s, c) => s + ((cdef(g, c).equip
 const apacheSafe = (g, src, t, card) => card.suit === 'D' && t !== src && ab(g, t, 'apache');
 const prompt = (player, type, data, validate) => ({ player: player.id, type, data: data || {}, validate });
 
+// Lá xanh lá đặt ở lượt trước mới dùng được (sách luật Dodge City).
+const ready = (g, c) => c.placed !== undefined && c.placed < g.turnNo;
+
 function nextAlive(g, p, dir = 1) {
   const n = g.players.length;
   let i = g.players.indexOf(p);
@@ -108,4 +111,4 @@ function molly(g, p, n) {
   if (n > 0 && p.alive && g.turn !== p.id && ab(g, p, 'molly')) { const d = drawCards(g, p, n); if (d.length) say(g, `🎀 ${p.name} rút ${d.length} lá (Molly Stark).`); }
 }
 
-module.exports = { OVER, SYM, SUIT_VI, makeRng, shuffle, rnd, cdef, pubCard, cname, say, alive, dirOf, charAbs, ab, gear, tableSum, apacheSafe, prompt, nextAlive, othersFrom, rawDist, distance, weaponRange, bangLimit, handLimit, beerBlocked, beerAmount, beersFor, popDeck, drawCards, pull, suzy, takeHand, takeTable, heal, mollyCard, molly };
+module.exports = { ready, OVER, SYM, SUIT_VI, makeRng, shuffle, rnd, cdef, pubCard, cname, say, alive, dirOf, charAbs, ab, gear, tableSum, apacheSafe, prompt, nextAlive, othersFrom, rawDist, distance, weaponRange, bangLimit, handLimit, beerBlocked, beerAmount, beersFor, popDeck, drawCards, pull, suzy, takeHand, takeTable, heal, mollyCard, molly };

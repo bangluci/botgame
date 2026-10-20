@@ -39,7 +39,7 @@ function connect() {
 function onState(prev) {
   const g = st.S.game, me = st.S.lobby.me;
   const pe = g && g.pending, mine = pe && pe.player === me;
-  if (!mine || pe.type !== 'play') { st.ui.sel = null; st.ui.zone = null; }
+  if (!mine || pe.type !== 'play') { st.ui.sel = null; st.ui.zone = null; st.ui.use = null; }
   if (!mine) st.ui.multi = null;
   if (!g) { st.ui.hideEnd = false; st.ui.modal = null; }
   if (st.ui.draft && !(st.S.lobby.hostId === me)) st.ui.draft = null;

@@ -16,7 +16,8 @@
   { "key": "sheriffPenalty", "group": "Nhân vật & vai trò", "label": "Cảnh sát trưởng giết Deputy thì bỏ hết bài", "type": "boolean", "value": true },
   { "key": "revealRoleOnDeath", "group": "Nhân vật & vai trò", "label": "Lật vai trò khi chết", "type": "boolean", "value": true },
 
-  { "key": "dodgeCity", "group": "Bộ mở rộng", "label": "Dodge City: thêm 15 nhân vật + 18 lá (Binocular, Hideout và bản in thêm)", "type": "boolean", "value": false },
+  { "key": "dodgeCity", "group": "Bộ mở rộng", "label": "Dodge City: thêm 15 nhân vật + 40 lá (lá xanh lá, lá bỏ kèm, Dodge…)", "type": "boolean", "value": false },
+  { "key": "dodgeCity3p", "group": "Bộ mở rộng", "label": "Dodge City · luật 3 người chính thức (vai lật ngửa, mỗi người một mục tiêu)", "type": "boolean", "value": true },
 
   { "key": "eventsOn", "group": "Sự kiện", "label": "Dùng lá sự kiện (từ vòng 2, mỗi vòng lật 1 lá; High Noon nằm cuối chồng)", "type": "boolean", "value": false }
 ]

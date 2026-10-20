@@ -149,6 +149,8 @@ body.offline::before {
   transition: transform .3s var(--spring), box-shadow .25s var(--ease), filter .25s, opacity .25s;
 }
 .card.k-equip { --rule: var(--blueink); }
+.card.k-green { --rule: var(--greenink); } /* lá xanh lá (Dodge City) */
+.card.k-green .c-name { color: var(--greenink); }
 .card.red { color: var(--stamp); }
 .card .c-corner { position: absolute; left: 12px; top: 10px; font: 700 15px/1 var(--font-label); display: grid; justify-items: center; }
 .card .c-corner i { font-style: normal; font-size: 13px; margin-top: 1px; }
@@ -250,6 +252,7 @@ body.offline::before {
 .cardrow { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px dotted var(--line-2); transition: opacity .2s; }
 .cardrow.off { opacity: .4; }
 .cr-icon { display: grid; place-items: center; width: 34px; height: 46px; font-size: 19px; flex: none; background: #f5ead0; box-shadow: inset 0 0 0 1.5px var(--ink), inset 0 0 0 3.5px #f5ead0, inset 0 0 0 4.5px var(--ink); filter: var(--engrave); }
+.cr-icon.k-green { box-shadow: inset 0 0 0 1.5px var(--greenink), inset 0 0 0 3.5px #f5ead0, inset 0 0 0 4.5px var(--greenink); }
 .cr-icon.k-equip { box-shadow: inset 0 0 0 1.5px var(--blueink), inset 0 0 0 3.5px #f5ead0, inset 0 0 0 4.5px var(--blueink); }
 .cr-name { flex: 1; min-width: 0; display: grid; }
 .cr-name b { font-size: 16px; font-weight: 700; }

@@ -1,6 +1,6 @@
 // Bàn chơi: ghế quanh bàn bầu dục, tay bài, banner hành động, nhật ký, các modal.
 import { st, esc, toast, post, act, rerender, clearSel, hooks } from './store.js';
-import { SYM, SUIT_VI, ROLE_VI, ROLE_HINT, G, cardDef, charDef, cardHtml, gearHtml, lifeHtml, roleBadge } from './cards.js';
+import { SYM, SUIT_VI, ROLE_VI, ROLE_HINT, ROLE_HINT_3P, G, cardDef, charDef, cardHtml, gearHtml, lifeHtml, roleBadge } from './cards.js';
 
 const meId = () => st.S.lobby.me;
 const meP = () => G().players.find((p) => p.id === meId());
@@ -20,9 +20,16 @@ const abilityOf = (name) => (G().me.abilities || []).find((a) => a.name === name
 const multiAb = () => (st.ui.multi ? abilityOf(st.ui.multi.name) : null);
 const multiReady = () => { const a = multiAb(); return !!(a && a.targets && st.ui.multi.ids.length === a.cards); };
 // Lá đang chọn (hoặc kỹ năng đã chọn đủ lá) nhắm được ai
+// Lá xanh lá trên bàn dùng được ngay (server tính sẵn) và lá đang chọn để dùng
+const greenOf = (id) => (G().me.greens || []).find((x) => x.id === id) || null;
+const myTable = () => (meP() || { table: [] }).table;
+const needExtra = (s) => { const pl = s && playInfo(s.id); return !!(pl && pl.cost && !s.extra); }; // lá "+1" chưa chọn lá bỏ kèm
+const withExtra = (s) => (s.extra ? { extra: s.extra } : {});
 function selTargets() {
   if (multiReady()) return multiAb().targets;
+  if (st.ui.use) { const gr = greenOf(st.ui.use); return gr ? gr.targets : []; }
   const s = st.ui.sel; if (!s) return null;
+  if (needExtra(s)) return null; // chọn xong lá bỏ kèm mới tô mục tiêu
   const pl = playInfo(s.id); if (!pl) return [];
   const list = s.asBang ? pl.bangTargets || [] : pl.targets;
   return list.length || !pl.self || s.asBang ? list : null; // lá tự chơi: không làm mờ ghế nào
@@ -72,7 +79,7 @@ function mebarHtml() {
     <div class="me-who"><b>${esc(me.name)} <small>· ${esc(ch ? ch.name : '')}</small></b><span class="me-skill">${esc(ch ? ch.desc : '')}${me.vera ? ` · 🎭 Đang mượn ${esc(charDef(me.vera).name)}: ${esc(charDef(me.vera).desc)}` : ''}</span></div>
     <div class="me-stats">${me.alive ? lifeHtml(me) : '<span class="rip">☠ Đã bị loại</span>'}
       <span class="stat" title="Tầm súng">🎯 ${m.range}</span><span class="stat" title="BANG! đã bắn lượt này">🔫 ${m.bangs}${m.bangLimit ? '/' + m.bangLimit : ''}</span>${m.cuff ? `<span class="stat warn">🔗 ${SUIT_VI[m.cuff]}</span>` : ''}</div>
-    <span class="role-card r-${m.role}" title="${esc(ROLE_HINT[m.role])}">${roleBadge(m.role, true)}<small>${esc(ROLE_HINT[m.role])}</small></span>
+    <span class="role-card r-${m.role}" title="${esc((g.threeP ? ROLE_HINT_3P : ROLE_HINT)[m.role])}">${roleBadge(m.role, true)}<small>${esc((g.threeP ? ROLE_HINT_3P : ROLE_HINT)[m.role])}</small></span>
     ${me.table.length ? `<div class="me-gear">${me.table.map(gearHtml).join('')}</div>` : ''}
     ${bubble(emote)}
   </div>`;
@@ -91,6 +98,9 @@ function multiHint() {
   if (!a) return '';
   return multiReady() ? 'Chọn mục tiêu trên bàn — ghế sáng viền đỏ' : `Chọn ${a.cards} lá để bỏ (${m.ids.length}/${a.cards}) · bấm lại nút kỹ năng để huỷ`;
 }
+const greenName = (id) => { const c = myTable().find((x) => x.id === id); return c ? cardDef(c).name : ''; };
+const greenBtns = () => (G().me.greens || []).map((gr) => { const c = myTable().find((x) => x.id === gr.id); if (!c) return ''; const d = cardDef(c);
+  return `<button class="btn btn-ghost btn-sm ${st.ui.use === gr.id ? 'on' : ''}" data-a="use" data-k="${gr.id}">Dùng ${esc(d.icon)} ${esc(d.name)}</button>`; }).join('');
 function bannerHtml() {
   const g = G(), pe = g.pending, me = meP();
   if (g.winner) return `<div class="banner end"><span class="b-icon">🏆</span><div class="b-text"><b>${esc(g.winner.text)}</b></div><div class="b-actions"><button class="btn btn-sm" data-a="show-end">Xem kết quả</button></div></div>`;
@@ -104,12 +114,13 @@ function bannerHtml() {
   switch (pe.type) {
     case 'play':
       icon = '🤠'; title = 'Lượt của bạn';
-      sub = u.multi ? multiHint() : u.sel ? ((selTargets() || []).length ? 'Chọn mục tiêu trên bàn — ghế sáng viền đỏ' : 'Xem lá bên dưới') : 'Chạm 1 lá để xem và chơi · xong thì kết thúc lượt';
-      btns += abilityBtns() + `<button class="btn btn-sm btn-primary" data-a="end"><span>Kết thúc lượt</span></button>`;
+      sub = u.multi ? multiHint() : u.use ? `Chọn mục tiêu cho ${greenName(u.use)} — ghế sáng viền đỏ · bấm lại nút để huỷ` : u.sel ? ((selTargets() || []).length ? 'Chọn mục tiêu trên bàn — ghế sáng viền đỏ' : 'Xem lá bên dưới') : 'Chạm 1 lá để xem và chơi · xong thì kết thúc lượt';
+      btns += abilityBtns() + greenBtns() + `<button class="btn btn-sm btn-primary" data-a="end"><span>Kết thúc lượt</span></button>`;
       break;
     case 'respond':
       icon = '💥'; sub = g.me.usable.length ? 'Chạm lá sáng để đỡ' : '';
-      btns = `<button class="btn btn-sm btn-danger" data-a="pass">Chịu đòn</button>`;
+      btns = myTable().filter((c) => g.me.usable.includes(c.id)).map((c) => `<button class="btn btn-ghost btn-sm" data-a="respond-table" data-k="${c.id}">Đỡ bằng ${esc(cardDef(c).icon)} ${esc(cardDef(c).name)}</button>`).join('')
+        + `<button class="btn btn-sm btn-danger" data-a="pass">Chịu đòn</button>`;
       break;
     case 'dying':
       icon = '☠️'; sub = u.multi ? multiHint() : g.me.usable.length ? 'Chạm Beer để uống' : '';
@@ -134,8 +145,13 @@ function dockHtml() {
   let acts = '', note = '';
   if (!pl) note = 'Lá này chưa chơi được lúc này.';
   else {
-    if (pl.self && !s.asBang) acts += `<button class="btn btn-primary btn-sm" data-a="play-self"><span>Chơi ${esc(d.name)}</span><i aria-hidden="true">→</i></button>`;
-    if (pl.targets.length && !s.asBang) note = 'Chọn mục tiêu trên bàn.';
+    if (needExtra(s)) note = 'Lá này phải bỏ kèm 1 lá: chạm thêm 1 lá khác trên tay.';
+    else {
+      const ex = s.extra && handCard(s.extra);
+      if (pl.self && !s.asBang) acts += `<button class="btn btn-primary btn-sm" data-a="play-self"><span>${pl.targets.length ? 'Chơi cho mình' : `Chơi ${esc(d.name)}`}</span><i aria-hidden="true">→</i></button>`;
+      if (pl.targets.length && !s.asBang) note = pl.self ? 'Hoặc chọn 1 người trên bàn.' : 'Chọn mục tiêu trên bàn.';
+      if (ex) note = `Bỏ kèm: ${cardDef(ex).name}. ${note}`;
+    }
     if (pl.bangTargets && pl.bangTargets.length) acts += `<button class="btn btn-ghost btn-sm ${s.asBang ? 'on' : ''}" data-a="as-bang">${s.asBang ? '✓ Đang dùng như BANG!' : 'Dùng như BANG!'}</button>`;
     if (d.isBeer && me.life >= me.maxLife) note = '⚠️ Bạn đang đầy máu — Beer sẽ không hồi gì.';
   }
@@ -147,7 +163,7 @@ function usable(c) {
   if (!mine()) return null;
   const pe = G().pending;
   if (st.ui.multi) { const a = multiAb(); return !!(a && a.pick.includes(c.id)); }
-  if (pe.type === 'play') return !!playInfo(c.id);
+  if (pe.type === 'play') return needExtra(st.ui.sel) ? c.id !== st.ui.sel.id || null : !!playInfo(c.id);
   if (pe.type === 'respond' || pe.type === 'dying' || pe.type === 'discard') return G().me.usable.includes(c.id);
   return null;
 }
@@ -157,7 +173,8 @@ function handHtml() {
   return hand.map((c, i) => {
     const ok = usable(c);
     const sel = (st.ui.sel && st.ui.sel.id === c.id) || (st.ui.multi && st.ui.multi.ids.includes(c.id));
-    return cardHtml(c, { a: 'card', cls: `${ok === true ? 'ok' : ok === false ? 'no' : ''} ${sel ? 'sel' : ''}`, style: `--i:${i};--n:${n}` });
+    const extra = st.ui.sel && st.ui.sel.extra === c.id;
+    return cardHtml(c, { a: 'card', cls: `${extra ? 'extra' : ok === true ? 'ok' : ok === false ? 'no' : ''} ${sel ? 'sel' : ''}`, style: `--i:${i};--n:${n}` });
   }).join('');
 }
 
@@ -290,7 +307,12 @@ function onCard(el) {
   }
   if (pe.type === 'play') {
     const pl = playInfo(id);
-    if (u.sel && u.sel.id === id && pl && pl.self && !pl.targets.length && !u.sel.asBang) return act({ type: 'play', card: id }); // chạm lần 2 = chơi
+    u.use = null;
+    if (u.sel && u.sel.id !== id && playInfo(u.sel.id) && playInfo(u.sel.id).cost) { // lá "+1": chạm lá khác = chọn/bỏ chọn lá bỏ kèm
+      u.sel.extra = u.sel.extra === id ? null : id;
+      return rerender();
+    }
+    if (u.sel && u.sel.id === id && pl && pl.self && !pl.targets.length && !u.sel.asBang && !needExtra(u.sel)) return act({ type: 'play', card: id, ...withExtra(u.sel) }); // chạm lần 2 = chơi
     u.sel = u.sel && u.sel.id === id ? null : { id, asBang: false };
     return rerender();
   }
@@ -301,12 +323,17 @@ function onCard(el) {
 }
 function onPlayer(el) {
   if (multiReady()) return act({ type: 'ability', name: st.ui.multi.name, cards: st.ui.multi.ids, target: el.dataset.id });
+  if (st.ui.use) { // dùng lá xanh lá trên bàn
+    const c = myTable().find((x) => x.id === st.ui.use); if (!c) return;
+    if (cardDef(c).steal) { st.ui.zone = { card: c.id, target: el.dataset.id, use: true }; return rerender(); }
+    return act({ type: 'use', card: c.id, target: el.dataset.id });
+  }
   const s = st.ui.sel; if (!s) return;
   const id = el.dataset.id, c = handCard(s.id);
   if (!c) return;
   const d = cardDef(c);
-  if (!s.asBang && d.steal) { st.ui.zone = { card: s.id, target: id }; return rerender(); }
-  act({ type: 'play', card: s.id, target: id, ...(s.asBang ? { as: 'bang' } : {}) });
+  if (!s.asBang && d.steal) { st.ui.zone = { card: s.id, target: id, ...withExtra(s) }; return rerender(); }
+  act({ type: 'play', card: s.id, target: id, ...(s.asBang ? { as: 'bang' } : {}), ...withExtra(s) });
 }
 const openInfo = (info) => { st.ui.info = info; st.ui.modal = 'info'; rerender(); };
 
@@ -316,7 +343,15 @@ export const tableActions = {
   'info-card': (el) => openInfo({ kind: 'card', key: el.dataset.key }),
   'info-char': (el) => el.dataset.key && openInfo({ kind: 'char', key: el.dataset.key }),
   'info-event': () => openInfo({ kind: 'event' }),
-  'play-self': () => act({ type: 'play', card: st.ui.sel.id }),
+  'play-self': () => act({ type: 'play', card: st.ui.sel.id, ...withExtra(st.ui.sel) }),
+  use: (el) => {
+    const gr = greenOf(+el.dataset.k); if (!gr) return;
+    st.ui.sel = null; st.ui.multi = null;
+    if (gr.self && !gr.targets.length) return act({ type: 'use', card: gr.id });
+    st.ui.use = st.ui.use === gr.id ? null : gr.id;
+    rerender();
+  },
+  'respond-table': (el) => act({ type: 'respond', card: +el.dataset.k }),
   'as-bang': () => { st.ui.sel.asBang = !st.ui.sel.asBang; rerender(); },
   unsel: () => { clearSel(); rerender(); },
   end: () => act({ type: 'end' }), pass: () => act({ type: 'pass' }),
@@ -332,7 +367,7 @@ export const tableActions = {
   pick: (el) => act({ type: 'pick', card: +el.dataset.id }),
   back: (el) => act({ type: 'back', card: +el.dataset.id }),
   char: (el) => act({ type: 'char', key: el.dataset.k }),
-  zone: (el) => { const z = st.ui.zone; act(el.dataset.k === 'hand' ? { type: 'play', card: z.card, target: z.target, zone: 'hand' } : { type: 'play', card: z.card, target: z.target, zone: 'table', cardId: +el.dataset.k }); },
+  zone: (el) => { const z = st.ui.zone, base = { type: z.use ? 'use' : 'play', card: z.card, target: z.target, ...(z.extra ? { extra: z.extra } : {}) }; act(el.dataset.k === 'hand' ? { ...base, zone: 'hand' } : { ...base, zone: 'table', cardId: +el.dataset.k }); },
   // nền mờ và nút ✕ có data-a="close-modal"; bấm bên trong sheet chạm data-a="noop" trước nên không đóng
   'close-modal': () => { st.ui.modal = null; st.ui.zone = null; rerender(); },
   noop: () => {},

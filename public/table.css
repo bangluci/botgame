@@ -93,6 +93,9 @@
 .gear { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 7px 1px 5px; border: 1px dashed var(--ink); font: 700 13px var(--font-label); color: var(--ink); background: rgba(255, 250, 235, .4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .gear.k-equip { border-color: var(--blueink); color: var(--blueink); }
+.gear.k-green { border: 1.5px solid var(--greenink); color: var(--greenink); background: rgba(61, 90, 46, .08); } /* lá xanh lá */
+.gear.fresh { opacity: .55; border-style: dashed; }
+.gear.fresh::after { content: '⏳'; font-size: 10px; }
 .gear small { font-size: 10.5px; opacity: .75; }
 .gear small.red { color: var(--stamp); opacity: 1; }
 .gear:hover { background: rgba(255, 250, 235, .9); }
@@ -192,6 +195,8 @@
 .hand .card.ok { box-shadow: inset 0 0 0 3px #f5ead0, inset 0 0 0 4.5px var(--rule), inset 0 0 0 6.5px #f5ead0, inset 0 0 0 7.5px var(--rule), 0 0 0 2.5px var(--ink), 4px 7px 0 rgba(31, 26, 20, .28); } /* chơi được: viền mực đậm, bóng in rõ */
 .hand .card.no { opacity: .55; filter: grayscale(.8) blur(.3px); }
 .hand .card.sel { transform: translateY(-30px) rotate(-2deg) scale(1.1); z-index: 4; box-shadow: inset 0 0 0 3px #f5ead0, inset 0 0 0 4.5px var(--rule), inset 0 0 0 6.5px #f5ead0, inset 0 0 0 7.5px var(--rule), 0 0 0 3px var(--stamp), 6px 12px 0 rgba(31, 26, 20, .25); }
+.hand .card.extra { transform: translateY(-16px) rotate(3deg); z-index: 3; box-shadow: inset 0 0 0 3px #f5ead0, inset 0 0 0 4.5px var(--rule), inset 0 0 0 6.5px #f5ead0, inset 0 0 0 7.5px var(--rule), 0 0 0 2.5px var(--sepia), 4px 7px 0 rgba(31, 26, 20, .28); }
+.hand .card.extra::after { content: 'BỎ KÈM'; position: absolute; left: 50%; top: 44%; padding: 0 5px; font: 400 13px var(--font-display); letter-spacing: .04em; color: var(--sepia); border: 2px dashed var(--sepia); background: rgba(245, 234, 208, .7); transform: translate(-50%, -50%) rotate(-10deg); white-space: nowrap; }
 .hand .card.sel::after { content: 'CHỌN'; position: absolute; left: 50%; top: 44%; padding: 0 6px; font: 400 17px var(--font-display); letter-spacing: .06em; color: var(--stamp); border: 2.5px solid var(--stamp); background: rgba(245, 234, 208, .6); transform: translate(-50%, -50%) rotate(-14deg); animation: stamp-in .4s var(--spring) both; }
 /* lá mới rút vào tay bay từ chồng rút xuống; lá vừa ra chồng bỏ đập xuống bàn (effects.js gắn class) */
 .hand .card.drawn { animation: drawn .6s calc(var(--k, 0) * 90ms) var(--spring) both; }

@@ -10,7 +10,7 @@ Chạy: bấm đúp `start.bat` (hoặc `npm start` / `node server.js`). Không 
 ## Khi có người rớt mạng / bỏ đi
 
 - Rớt mạng thì cứ mở lại trang, game tự nối lại. Mất phiên hoặc đổi máy thì vào phòng **bằng đúng tên cũ** để nhận lại ghế.
-- Người offline quá 15 giây, hoặc online mà không bấm gì trong 90 giây: máy tự chơi thay nước đó. Đồng hồ ⏱ đếm ngược ngay trên banner.
+- Người offline quá 15 giây, hoặc online mà không bấm gì trong 90 giây: máy tự chơi thay nước đó. Đồng hồ ⏱ đếm ngược ngay trên banner. Chủ phòng chỉnh hai mốc này ở tab Luật → **Phòng**.
 - Bấm 🚪 để rời giữa ván: máy chơi thay tới hết ván. Chủ phòng có thể bấm vào ghế một người rồi chọn **🤖 Cho máy chơi thay**, hoặc **⏹ Huỷ ván** để về sảnh.
 - Chủ phòng offline 30 giây thì quyền chủ phòng tự chuyển sang người khác.
 - Phòng và ván được lưu ở `data/rooms.json`. Tắt server rồi mở lại vẫn chơi tiếp được.
@@ -26,7 +26,7 @@ Chạy: bấm đúp `start.bat` (hoặc `npm start` / `node server.js`). Không 
   - chia nhiều nhân vật để chọn, bật/tắt lá sự kiện…
 - *Bộ bài*: tăng/giảm/bỏ từng loại lá (0 = bỏ lá đó).
 - *Nhân vật*, *Sự kiện*: bật/tắt từng mục.
-- *Nâng cao*: dán JSON để thêm/sửa lá bài, nhân vật, sự kiện, vai trò cho riêng phòng đó.
+- *Nâng cao*: dán JSON để thêm/sửa lá bài, nhân vật, sự kiện, vai trò cho riêng phòng đó. Lá/nhân vật/sự kiện thêm vào hiện luôn trong các tab Bộ bài, Nhân vật, Sự kiện để bật/tắt.
 
 **2. Thư mục `custom/`**: tuỳ chỉnh lâu dài, mọi phòng đều dùng. Xem `custom/README.txt`.
 
@@ -38,14 +38,12 @@ Mọi thứ ghép từ các khối dựng sẵn, không cần viết code:
 
 | Loại | Các khối có sẵn |
 |---|---|
-| Hiệu ứng lá bài (`effect[].type`) | `bang`, `heal` (`amount`, `who:"all"`/`"target"`), `draw` (`n`), `steal` (`mode:"take"/"discard"`), `aoe` (`respond:"bang"/"missed"`, `damage`, `barrel`), `duel`, `store`, `brawl` (mọi người khác bỏ 1 lá trên tay hoặc trên bàn) |
+| Hiệu ứng lá (`effect[].type`), kỹ năng nhân vật (`abilities`), mod sự kiện (`mods`) | Danh sách kèm mô tả nằm trong sảnh: tab **🧪 Nâng cao** → "Hiệu ứng / kỹ năng / mod có sẵn" (nguồn duy nhất: đầu file `config.js`). Ví dụ `bang`, `heal`, `steal`, `aoe`; kỹ năng `sid`, `willy`; mod `drawDelta`, `noBang`… Sự kiện có `"final": true` thì nằm cuối chồng, lật ra là giữ tới hết ván |
 | Đồ trang bị (`equip`) | `weapon` (tầm), `unlimitedBang`, `distIn` (+khoảng cách tới bạn), `distOut` (−khoảng cách bạn nhìn), `barrel`, `dynamite`, `jail` |
 | Lá xanh lá (`"kind": "green"`) | Đặt trước mặt, từ lượt sau mới dùng. `"react": "missed"`: bỏ đi để đỡ đòn như Missed! kể cả ngoài lượt. `"use": [...]`: bỏ đi trong lượt mình để chạy hiệu ứng (cùng khối với `effect`) |
 | Tuỳ chọn khác của lá | `"cost": 1` (phải bỏ kèm 1 lá khác trên tay), `"free": true` (BANG! không tính giới hạn), `"reactDraw": n` (đỡ đòn bằng lá này xong rút n lá) |
 | Mục tiêu (`target`, `range`) | `target`: `other`/`self`/`any` (chọn ai cũng được, bỏ trống là mình)/bỏ trống; `range`: `"weapon"`, `"any"`, hoặc số 1…10. Lá có `bang`/`duel`/`steal` bắt buộc `"target": "other"` |
-| Kỹ năng nhân vật (`abilities`) | `bart blackjack janet gringo jesse jourdonnais kit lucky paul pedro rose sid slab suzy vulture willy`, và của Dodge City: `pixie bill sean tequila greg herb elena chuck doc jose pat vera belle apache molly` |
 | Bộ mở rộng (`set`, `extra`) | `"set": "dodgecity"` thì lá/nhân vật chỉ vào ván khi bật luật Dodge City. `"extra": { "dodgecity": ["S:8"] }` thêm bản in cho lá có sẵn |
-| Mod sự kiện (`mods`) | `drawSuit reverse noBang drawDelta bangBonus noAbilities beerHeal rangeBonus turnStartDamage turnStartHeal turnStartDraw handcuffs vendetta handLimitDelta missedExtra`, và `"final": true` để lá đó nằm cuối chồng, lật ra là giữ tới hết ván |
 
 Ví dụ:
 - Lá "Súng máy" bắn 2 phát liền: `"target": "other", "effect": [{"type":"bang"},{"type":"bang"}]`.

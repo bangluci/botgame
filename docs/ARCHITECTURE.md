@@ -2,7 +2,7 @@
 
 ## Luồng tổng
 1. Trình duyệt long-poll `/api/poll`. Server trả ảnh chụp gồm sảnh và `engine.viewFor` của đúng người đó, kèm giờ server để client đếm ngược.
-2. Client vá DOM theo vùng: vùng nào có HTML đổi mới thay. Cách này giữ focus và vị trí cuộn nhật ký — [patch](../public/app.js#L69-L78) `current`.
+2. Client vá DOM theo vùng: vùng nào có HTML đổi mới thay. Cách này giữ focus và vị trí cuộn nhật ký — [patch](../public/app.js#L74-L83) `current`.
 3. Thao tác gửi `POST /api/action`, rồi server chạy `engine.apply` và `pushAll` để báo cả phòng.
 
 ## Engine (4 file)
@@ -21,16 +21,19 @@
 - Luật 3 người Dodge City (`g.threeP`): vai lật ngửa, Deputy đi trước; [threeKill](../combat.js#L76-L86) xử thắng khi tự tay hạ đúng mục tiêu, gọi từ [die](../combat.js#L87-L111) `current`.
 
 ## Cấu hình (`config.js`)
-- Gộp 3 tầng: `config/*.json` ← `custom/*.json` ← override của phòng. Có cache theo mtime — [loadBase](../config.js#L36-L41) `current`.
-- [validate](../config.js#L79-L146) kiểm kiểu và khoảng giá trị, bắt buộc `target:"other"` cho bang/duel/steal, và chặn tổ hợp sai của lá xanh lá (`use`, `react`) / lá "+1" `current`. [resolve](../config.js#L173-L202) giới hạn bộ bài trong khoảng 20–500 lá `current`.
+- Gộp 3 tầng: `config/*.json` ← `custom/*.json` ← override của phòng. Có cache theo mtime — [loadBase](../config.js#L67-L72) `current`.
+- Registry khối dựng sẵn duy nhất: [EFFECTS](../config.js#L12-L21), `ABILITIES`, [MODS](../config.js#L25-L41) (tên → mô tả; kỹ năng lấy mô tả từ nhân vật gốc). Sảnh hiện danh sách này ở tab Nâng cao; [kịch bản kiểm](../test-scenarios.js#L404-L414) báo lỗi khi registry và code engine lệch nhau `current`.
+- [validate](../config.js#L109-L176) kiểm kiểu và khoảng giá trị, bắt buộc `target:"other"` cho bang/duel/steal, và chặn tổ hợp sai của lá xanh lá (`use`, `react`) / lá "+1" `current`. [resolve](../config.js#L203-L232) giới hạn bộ bài trong khoảng 20–500 lá `current`.
+- [roomLists](../config.js#L265-L273) gộp JSON ghi đè của phòng để sảnh hiện lá/nhân vật/sự kiện tự thêm; [rule](../config.js#L276-L279) đọc 1 luật của phòng (server dùng cho giờ máy chơi thay) `current`.
 
 ## Bot (`ai.js`)
 - Bot chỉ đọc view công khai. [observe](../ai.js#L28-L41) suy vai qua chuyện ai đánh ai, [score](../ai.js#L45-L54) cho điểm mục tiêu theo vai (ván 3 người: ưu tiên đúng mục tiêu của mình), [rank](../ai.js#L129-L193) xếp nước đi, rồi [decide](../ai.js#L213-L216) lấy nước hợp lệ đầu tiên `current`.
 
 ## Server (`server.js`)
-- Phòng nằm trong RAM, đồng thời được ghi ra `data/rooms.json` (seed + action) qua [save](../server.js#L114-L128), và dựng lại bằng [load](../server.js#L130-L147) `current`.
-- Bot và chơi thay dùng chung một cơ chế. [schedule](../server.js#L84-L98) hẹn giờ theo 3 kiểu: bot (khoảng 1 giây), người offline (15 giây), người đứng im (90 giây). Hết giờ thì [autoPlay](../server.js#L99-L109) gọi `ai.decide` `current`.
-- Vào lại ghế cũ bằng đúng tên — [join](../server.js#L203-L219) `current`. Các lệnh có phiên nằm trong [command](../server.js#L222-L287) `current`.
+- Phòng nằm trong RAM, đồng thời được ghi ra `data/rooms.json` (seed + action) qua [save](../server.js#L124-L139), và dựng lại bằng [load](../server.js#L140-L157) `current`.
+- Bot và chơi thay dùng chung một cơ chế. [schedule](../server.js#L94-L108) hẹn giờ theo 3 kiểu: bot (khoảng 1 giây), người offline, người đứng im. Hai mốc sau là luật của phòng `offlineTakeover` / `idleTakeover` (mặc định 15 / 90 giây) — [takeover](../server.js#L22). Hết giờ thì [autoPlay](../server.js#L109-L119) gọi `ai.decide` `current`.
+- Vào lại ghế cũ bằng đúng tên — [join](../server.js#L219-L235) `current`. Các lệnh có phiên nằm trong [command](../server.js#L238-L303) `current`.
+- Băng thông: mọi phản hồi chữ > 1 KB được nén gzip qua [send](../server.js#L161-L165). `defs` của ván (~70% ảnh chụp, không đổi suốt ván) chỉ gửi khi khoá `?d=` client gửi lên khác khoá của ván — [snapshot](../server.js#L68-L82), client giữ bản trong [connect](../public/app.js#L12-L43) `current`.
 
 ## Client (`public/`)
 - `store.js` giữ trạng thái chung và gọi API. `lobby.js` vẽ trang chủ + sảnh. `table.js` vẽ bàn chơi. `effects.js` lo âm thanh, vệt đạn, đếm ngược.

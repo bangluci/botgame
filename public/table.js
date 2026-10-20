@@ -35,6 +35,7 @@ function seatHtml(p, i, k) {
   const x = 50 + 40 * Math.cos(a), y = 54 + 37 * Math.sin(a); // chừa chỗ cho ghế cao (có đồ trang bị) ở mép trên
   const targets = selTargets();
   const tgt = targets && p.alive && targets.includes(p.id), far = targets && p.alive && !tgt;
+  const immune = far && !multiReady() && st.ui.sel && !st.ui.sel.asBang && ((playInfo(st.ui.sel.id) || {}).immune || []).includes(p.id); // Apache Kid miễn lá ♦
   const cls = ['seat', g.turn === p.id && 'turn', pe && pe.player === p.id && 'pend', !p.alive && 'dead', tgt && 'tgt', far && 'far',
     pe && pe.type === 'respond' && pe.from === p.id && 'shooter', pe && pe.type === 'respond' && pe.player === p.id && 'under-fire'].filter(Boolean).join(' ');
   const emote = (st.S.emotes || []).filter((e) => e.pid === p.id).pop();
@@ -45,7 +46,7 @@ function seatHtml(p, i, k) {
       <div class="p-meta"><span class="hc" title="Số lá trên tay"><i class="mini-back"></i>${p.hand}</span>${p.dist != null ? `<span class="dist" title="Khoảng cách từ bạn">↔ ${p.dist}</span>` : ''}${!m.online && !m.bot ? '<span class="tag off">offline</span>' : ''}${m.auto ? '<span class="tag auto">máy chơi thay</span>' : ''}</div>
       ${p.table.length ? `<div class="p-gear">${p.table.map(gearHtml).join('')}</div>` : ''}
     </div>
-    ${tgt ? '<span class="crosshair" aria-hidden="true"></span>' : ''}${far ? '<span class="far-tag">ngoài tầm</span>' : ''}
+    ${tgt ? '<span class="crosshair" aria-hidden="true"></span>' : ''}${far ? `<span class="far-tag">${immune ? 'miễn ♦' : 'ngoài tầm'}</span>` : ''}
     ${bubble(emote)}
   </div>`;
 }

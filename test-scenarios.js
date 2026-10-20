@@ -400,6 +400,19 @@ test('Luật 3 người Dodge City: vai lật ngửa, Deputy đi trước, tự 
   assert.equal(d2.hand.length, h + 3, 'hạ ai cũng rút 3 (bốc 1 BANG!, chơi đi, được thưởng 3)');
 });
 
+// ---------- registry khối dựng sẵn ----------
+test('Khối dựng sẵn khai trong config.js khớp với code engine (thêm kỹ năng mà quên khai/quên code thì lỗi)', () => {
+  const src = ['engine.js', 'rules.js', 'combat.js', 'abilities.js'].map((f) => require('fs').readFileSync(require('path').join(__dirname, f), 'utf8')).join('\n');
+  const m = require('./config').describe();
+  for (const { key } of m.effects) assert.ok(src.includes(`case '${key}'`), `hiệu ứng "${key}" chưa có case trong runEffect`);
+  for (const { key, desc } of m.abilities) {
+    assert.ok(src.includes(`'${key}'`) || new RegExp(`^  ${key}: \\{`, 'm').test(src), `kỹ năng "${key}" chưa có code`);
+    assert.ok(desc, `kỹ năng "${key}" chưa có nhân vật nào mang (thiếu mô tả)`);
+  }
+  for (const { key } of m.mods) assert.ok(new RegExp(`\\.${key}\\b`).test(src), `mod "${key}" chưa có code`);
+  for (const [, k] of src.matchAll(/\bab\([^()]*'([a-z]+)'\)/g)) assert.ok(m.abilities.some((a) => a.key === k), `code dùng kỹ năng "${k}" nhưng config.js chưa khai`);
+});
+
 let fail = 0;
 for (const [name, fn] of tests) {
   try { fn(); console.log('✅', name); } catch (e) { fail++; console.log('❌', name, '—', e.message); }

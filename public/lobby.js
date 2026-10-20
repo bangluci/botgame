@@ -142,6 +142,7 @@ function cardsTab(s, dis) {
       <span class="stepper"><button class="icon-btn" data-a="copies" data-k="${esc(c.key)}" data-d="-1" ${dis || (n <= 0 ? 'disabled' : '')} aria-label="Bớt">−</button><output>${n}</output><button class="icon-btn" data-a="copies" data-k="${esc(c.key)}" data-d="1" ${dis || (n >= 6 ? 'disabled' : '')} aria-label="Thêm">+</button></span></div>`;
   }).join('')}</div>`;
 }
+const blockList = (title, list) => `<h3 class="grp">${esc(title)}</h3><dl class="gloss">${list.map((b) => `<div><dt><code>${esc(b.key)}</code></dt><dd>${esc(b.desc)}</dd></div>`).join('')}</dl>`;
 const toggles = (list, off, a, dis, sub, s) => `<div class="chips">${list.map((x) => { const out = off.includes(x.key) || (s && !setOn(s, x.set)); return `<button type="button" class="chip ${out ? 'off' : ''}" data-a="${a}" data-k="${esc(x.key)}" ${dis} aria-pressed="${!out}"><span aria-hidden="true">${esc(x.icon)}</span><b>${esc(x.name)}${setTag(x.set)}</b>${sub(x)}</button>`; }).join('')}</div>`;
 
 function settingsHtml(host) {
@@ -160,8 +161,7 @@ function settingsHtml(host) {
       <textarea id="adv" ${dis} spellcheck="false" placeholder='{ "cards": { ... }, "characters": { ... } }'>${esc(st.ui.adv)}</textarea>
       ${st.ui.advErr ? `<p class="form-err">${esc(st.ui.advErr)}</p>` : ''}
       ${host ? '<div class="row"><button class="btn btn-sm" data-a="applyadv">Áp dụng</button><button class="btn btn-ghost btn-sm" data-a="clearadv">Xoá ghi đè</button></div>' : ''}
-      <details><summary>Hiệu ứng / kỹ năng / mod có sẵn</summary>
-        <p><b>effect.type:</b> ${m.effects.join(', ')}</p><p><b>abilities:</b> ${m.abilities.join(', ')}</p><p><b>mods:</b> ${m.mods.join(', ')}</p></details>`;
+      <details><summary>Hiệu ứng / kỹ năng / mod có sẵn</summary>${blockList('Hiệu ứng lá — "effect": [{ "type": … }]', m.effects)}${blockList('Kỹ năng nhân vật — "abilities": [ … ]', m.abilities)}${blockList('Mod sự kiện — "mods": { … }', m.mods)}</details>`;
   }
   return `<div class="panel settings">
     <div class="panel-head"><h2>Luật chơi</h2>${host ? '' : '<small class="hint">chỉ chủ phòng sửa được</small>'}</div>

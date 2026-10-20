@@ -6,12 +6,43 @@ const path = require('path');
 const DIR = path.join(__dirname, 'config');
 const CUSTOM = path.join(__dirname, 'custom');
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-const EFFECTS = new Set(['bang', 'heal', 'draw', 'steal', 'aoe', 'duel', 'store', 'brawl']);
+// ---------- Khối dựng sẵn cho JSON tự chế (registry duy nhất) ----------
+// Thêm hiệu ứng / kỹ năng / mod mới: viết code trong engine rồi khai báo ở đây. Sảnh (tab Nâng cao) hiện danh sách
+// này kèm mô tả; test-scenarios.js báo lỗi nếu code engine và danh sách này lệch nhau.
+const EFFECTS = {
+  bang: 'BANG! vào mục tiêu',
+  heal: 'hồi máu: "amount" (mặc định 1), "who": "all" (mọi người) hoặc "target" (người được chọn)',
+  draw: 'rút "n" lá (mặc định 1)',
+  steal: 'lấy về tay ("mode": "take") hoặc bắt bỏ ("mode": "discard") 1 lá của mục tiêu',
+  aoe: 'đánh mọi người khác: "respond": "bang" (như Indians!) hoặc "missed" (như Gatling), "damage", "barrel": true cho Barrel đỡ',
+  duel: 'đấu tay đôi bằng BANG!',
+  store: 'lật bài cho mọi người lần lượt chọn (General Store)',
+  brawl: 'mọi người khác bỏ 1 lá trên tay hoặc trên bàn, người chơi chọn',
+};
+// Kỹ năng: mô tả lấy từ nhân vật gốc mang kỹ năng đó (config/characters.json). Dòng 2: Dodge City.
 const ABILITIES = new Set(['bart', 'blackjack', 'janet', 'gringo', 'jesse', 'jourdonnais', 'kit', 'lucky', 'paul', 'pedro', 'rose', 'sid', 'slab', 'suzy', 'vulture', 'willy',
-  'pixie', 'bill', 'sean', 'tequila', 'greg', 'herb', 'elena', 'chuck', 'doc', 'jose', 'pat', 'vera', 'belle', 'apache', 'molly']); // dòng 2: Dodge City
+  'pixie', 'bill', 'sean', 'tequila', 'greg', 'herb', 'elena', 'chuck', 'doc', 'jose', 'pat', 'vera', 'belle', 'apache', 'molly']);
+const MODS = {
+  drawSuit: '"S"/"H"/"D"/"C": mọi lá rút! đều tính là chất này',
+  reverse: 'true: đảo thứ tự lượt',
+  noBang: 'true: cấm chơi BANG!',
+  drawDelta: 'rút đầu lượt nhiều/ít hơn',
+  bangBonus: 'thêm số BANG! mỗi lượt',
+  noAbilities: 'true: mọi nhân vật mất kỹ năng',
+  beerHeal: 'Beer hồi bấy nhiêu máu',
+  rangeBonus: 'cộng tầm mọi khẩu súng',
+  turnStartDamage: 'đầu lượt mất bấy nhiêu máu',
+  turnStartHeal: 'đầu lượt hồi bấy nhiêu máu',
+  turnStartDraw: 'đầu lượt rút thêm bấy nhiêu lá',
+  handcuffs: 'true: đầu lượt chọn 1 chất, chỉ được chơi bài chất đó',
+  vendetta: 'true: cuối lượt rút!, ra ♥ thì chơi thêm 1 lượt',
+  handLimitDelta: 'cộng giới hạn bài cuối lượt',
+  missedExtra: 'cần thêm bấy nhiêu Missed! để né BANG!',
+};
+// Mod dạng số: khoảng giá trị hợp lệ (mod khác là true/false, riêng drawSuit là chất).
+const NUM_MODS = { drawDelta: [-3, 3], bangBonus: [0, 5], beerHeal: [0, 3], rangeBonus: [-3, 3], turnStartDamage: [0, 3], turnStartHeal: [0, 3], turnStartDraw: [0, 3], handLimitDelta: [-3, 5], missedExtra: [0, 2] };
 // Bộ mở rộng -> luật bật nó. Lá/nhân vật có "set" chỉ vào ván khi luật đó bật; "extra": { set: [printings] } thêm bản in của bộ đó.
 const SETS = { dodgecity: 'dodgeCity' };
-const MODS = new Set(['drawSuit', 'reverse', 'noBang', 'drawDelta', 'bangBonus', 'noAbilities', 'beerHeal', 'rangeBonus', 'turnStartDamage', 'turnStartHeal', 'turnStartDraw', 'handcuffs', 'vendetta', 'handLimitDelta', 'missedExtra']);
 
 function readJson(file) {
   let txt;
@@ -74,11 +105,10 @@ const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 function intField(where, obj, key, lo, hi) {
   if (obj[key] !== undefined && !isInt(obj[key], lo, hi)) throw new Error(`${where}: "${key}" phải là số nguyên ${lo}…${hi}`);
 }
-const NUM_MODS = { drawDelta: [-3, 3], bangBonus: [0, 5], beerHeal: [0, 3], rangeBonus: [-3, 3], turnStartDamage: [0, 3], turnStartHeal: [0, 3], turnStartDraw: [0, 3], handLimitDelta: [-3, 5], missedExtra: [0, 2] };
 
 function validate(cfg) {
   const eff = (where, e) => {
-    if (!e || !EFFECTS.has(e.type)) throw new Error(`${where}: hiệu ứng "${e && e.type}" không có. Các hiệu ứng: ${[...EFFECTS].join(', ')}`);
+    if (!e || !Object.hasOwn(EFFECTS, e.type)) throw new Error(`${where}: hiệu ứng "${e && e.type}" không có. Các hiệu ứng: ${Object.keys(EFFECTS).join(', ')}`);
     for (const f of ['amount', 'n', 'damage']) intField(where, e, f, 1, 5);
     if (e.type === 'aoe' && !['bang', 'missed'].includes(e.respond)) throw new Error(`${where}: aoe cần "respond": "bang" hoặc "missed"`);
     if (e.type === 'steal' && !['take', 'discard'].includes(e.mode)) throw new Error(`${where}: steal cần "mode": "take" hoặc "discard"`);
@@ -132,7 +162,7 @@ function validate(cfg) {
   for (const [k, e] of Object.entries(cfg.events)) {
     if (!e.name) throw new Error(`Sự kiện "${k}" thiếu "name"`);
     for (const [m, v] of Object.entries(e.mods || {})) {
-      if (!MODS.has(m)) throw new Error(`Sự kiện "${k}": mod "${m}" không có. Các mod: ${[...MODS].join(', ')}`);
+      if (!Object.hasOwn(MODS, m)) throw new Error(`Sự kiện "${k}": mod "${m}" không có. Các mod: ${Object.keys(MODS).join(', ')}`);
       if (NUM_MODS[m]) intField(`Sự kiện "${k}"`, e.mods, m, ...NUM_MODS[m]);
       else if (m === 'drawSuit') { if (!'SHDC'.includes(v) || v.length !== 1) throw new Error(`Sự kiện "${k}": drawSuit phải là S/H/D/C`); }
       else if (typeof v !== 'boolean') throw new Error(`Sự kiện "${k}": mod "${m}" phải là true/false`);
@@ -205,6 +235,7 @@ function resolve(settings = {}) {
 function describe() {
   const base = loadBase();
   validate({ ...base, roles: base.roles });
+  const owner = (a) => Object.values(base.characters).find((c) => (c.abilities || []).includes(a));
   return {
     rules: base.ruleDefs,
     cards: Object.entries(base.cards).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🂠', kind: c.kind, desc: c.desc || '', set: c.set || null, count: expand(c.printings, key).length,
@@ -213,7 +244,9 @@ function describe() {
     sets: SETS,
     events: Object.entries(base.events).map(([key, e]) => ({ key, name: e.name, icon: e.icon || '🎴', desc: e.desc || '' })),
     presets: base.presets,
-    abilities: [...ABILITIES], effects: [...EFFECTS], mods: [...MODS],
+    effects: Object.entries(EFFECTS).map(([key, desc]) => ({ key, desc })),
+    abilities: [...ABILITIES].map((key) => { const c = owner(key); return { key, desc: c ? `${c.name}: ${c.desc || ''}` : '' }; }),
+    mods: Object.entries(MODS).map(([key, desc]) => ({ key, desc: NUM_MODS[key] ? `${NUM_MODS[key][0]}…${NUM_MODS[key][1]}: ${desc}` : desc })),
     maxPlayers: Math.max(...Object.keys(base.roles).map(Number)),
     minPlayers: Math.min(...Object.keys(base.roles).map(Number)),
   };

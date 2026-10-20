@@ -32,7 +32,7 @@ function selTargets() {
 function seatHtml(p, i, k) {
   const g = G(), ch = charDef(p.char), m = member(p.id), pe = g.pending;
   const a = ((90 + ((i + 1) * 360) / (k + 1)) * Math.PI) / 180;
-  const x = 50 + 42 * Math.cos(a), y = 54 + 37 * Math.sin(a); // chừa chỗ cho ghế cao (có đồ trang bị) ở mép trên
+  const x = 50 + 40 * Math.cos(a), y = 54 + 37 * Math.sin(a); // chừa chỗ cho ghế cao (có đồ trang bị) ở mép trên
   const targets = selTargets();
   const tgt = targets && p.alive && targets.includes(p.id), far = targets && p.alive && !tgt;
   const cls = ['seat', g.turn === p.id && 'turn', pe && pe.player === p.id && 'pend', !p.alive && 'dead', tgt && 'tgt', far && 'far',

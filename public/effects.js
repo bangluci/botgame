@@ -55,6 +55,11 @@ export function tracer(fromId, toId, hot) {
     <circle class="t-muzzle" cx="${p.x}" cy="${p.y}" r="14"/><circle class="t-impact" cx="${q.x}" cy="${q.y}" r="10"/>`;
   fx.appendChild(svg);
   setTimeout(() => svg.remove(), 1100);
+  if (hot) { // khói súng bốc lên ở người bắn
+    const puff = document.createElement('span');
+    puff.className = 'puff'; puff.style.left = `${p.x}px`; puff.style.top = `${p.y}px`;
+    fx.appendChild(puff); setTimeout(() => puff.remove(), 1400);
+  }
 }
 export function floatText(id, text, cls) {
   const el = seatEl(id), fx = document.getElementById('fx');
@@ -64,10 +69,12 @@ export function floatText(id, text, cls) {
   s.style.left = `${c.x}px`; s.style.top = `${c.y - 20}px`;
   fx.appendChild(s); setTimeout(() => s.remove(), 1300);
 }
-function flash(id, cls, ms = 700) {
-  const el = seatEl(id); if (!el) return;
+function flash(id, cls, ms = 700) { poke(seatEl(id), cls, ms); }
+// Gắn lại class để chạy lại animation CSS (lỗ đạn, lá đập xuống bàn, lá bay vào tay…).
+function poke(el, cls, ms) {
+  if (!el) return;
   el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
-  setTimeout(() => el.classList.remove(cls), ms);
+  if (ms) setTimeout(() => el.classList.remove(cls), ms);
 }
 
 // So trạng thái cũ/mới để biết vừa có chuyện gì (ai mất máu, ai chơi lá gì, tới lượt mình…).
@@ -82,14 +89,22 @@ export function sync(prev, g, meId) {
     sound(hot ? 'shot' : 'card');
   }
   if (was) {
+    let hurt = false;
     for (const p of g.players) {
       const o = was.players.find((x) => x.id === p.id);
       if (!o) continue;
-      if (p.life < o.life) { flash(p.id, 'hit'); floatText(p.id, `−${o.life - p.life}`, 'dmg'); sound('hit'); }
+      if (p.life < o.life) { flash(p.id, 'hit', 2200); hurt = true; floatText(p.id, `−${o.life - p.life}`, 'dmg'); sound('hit'); }
       else if (p.life > o.life && p.alive) floatText(p.id, `+${p.life - o.life}`, 'heal');
       if (o.alive && !p.alive) flash(p.id, 'just-dead', 1600);
     }
+    if (hurt && !reduced()) poke(document.querySelector('.g-main'), 'quake', 500); // rung bàn khi có người trúng đạn
     if (g.winner && !was.winner) sound('win');
+    // lá vừa ra chồng bỏ đập xuống bàn; lá mới vào tay mình bay từ chồng rút xuống
+    if (g.discardTop && (!was.discardTop || g.discardTop.id !== was.discardTop.id)) poke(document.querySelector('.discard .card'), 'slap', 900);
+    if (g.me && was.me) {
+      const had = new Set(was.me.hand.map((c) => c.id));
+      g.me.hand.filter((c) => !had.has(c.id)).forEach((c, k) => { const el = document.querySelector(`.hand .card[data-id="${c.id}"]`); if (el) el.style.setProperty('--k', k); poke(el, 'drawn', 1400); });
+    }
   }
   const pe = g.pending, ppe = was && was.pending;
   const myNow = pe && pe.player === meId, myBefore = ppe && ppe.player === meId && ppe.type === pe.type;

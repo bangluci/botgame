@@ -231,6 +231,16 @@ function resolve(settings = {}) {
   return cfg;
 }
 
+// Danh sách lá / nhân vật / sự kiện để sảnh hiện (tab Bộ bài, Nhân vật, Sự kiện).
+function lists(cards, characters, events) {
+  return {
+    cards: Object.entries(cards).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🂠', kind: c.kind, desc: c.desc || '', set: c.set || null, count: expand(c.printings, key).length,
+      extra: Object.fromEntries(Object.entries(c.extra || {}).map(([set, list]) => [set, expand(list, key).length])) })),
+    characters: Object.entries(characters).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🙂', life: c.life, desc: c.desc || '', set: c.set || null })),
+    events: Object.entries(events).map(([key, e]) => ({ key, name: e.name, icon: e.icon || '🎴', desc: e.desc || '' })),
+  };
+}
+
 // Dữ liệu để dựng giao diện tuỳ chỉnh trong sảnh.
 function describe() {
   const base = loadBase();
@@ -238,11 +248,8 @@ function describe() {
   const owner = (a) => Object.values(base.characters).find((c) => (c.abilities || []).includes(a));
   return {
     rules: base.ruleDefs,
-    cards: Object.entries(base.cards).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🂠', kind: c.kind, desc: c.desc || '', set: c.set || null, count: expand(c.printings, key).length,
-      extra: Object.fromEntries(Object.entries(c.extra || {}).map(([set, list]) => [set, expand(list, key).length])) })),
-    characters: Object.entries(base.characters).map(([key, c]) => ({ key, name: c.name, icon: c.icon || '🙂', life: c.life, desc: c.desc || '', set: c.set || null })),
+    ...lists(base.cards, base.characters, base.events),
     sets: SETS,
-    events: Object.entries(base.events).map(([key, e]) => ({ key, name: e.name, icon: e.icon || '🎴', desc: e.desc || '' })),
     presets: base.presets,
     effects: Object.entries(EFFECTS).map(([key, desc]) => ({ key, desc })),
     abilities: [...ABILITIES].map((key) => { const c = owner(key); return { key, desc: c ? `${c.name}: ${c.desc || ''}` : '' }; }),
@@ -252,4 +259,17 @@ function describe() {
   };
 }
 
-module.exports = { resolve, describe, sanitize, RANKS };
+// Như describe() nhưng đã gộp JSON ghi đè của phòng, để lá/nhân vật/sự kiện tự thêm hiện trong sảnh.
+// null khi phòng không ghi đè gì (client dùng danh sách gốc trong /api/meta). Cache theo object settings.
+const roomCache = new WeakMap();
+function roomLists(settings) {
+  const ov = settings.override || {};
+  if (!ov.cards && !ov.characters && !ov.events) return null;
+  if (!roomCache.has(settings)) {
+    const base = loadBase();
+    roomCache.set(settings, lists(mergeKeyed(base.cards, ov.cards), mergeKeyed(base.characters, ov.characters), mergeKeyed(base.events, ov.events)));
+  }
+  return roomCache.get(settings);
+}
+
+module.exports = { resolve, describe, roomLists, sanitize, RANKS };

@@ -58,6 +58,7 @@ function newRoom(code, host) {
 function lobbyView(room, me) {
   return {
     code: room.code, started: !!room.game, hostId: room.hostId, me, settings: room.settings, lan: LAN.filter((a) => !a.virtual).map((a) => a.url),
+    lists: room.game ? null : config.roomLists(room.settings), // lá/nhân vật tự thêm qua "Nâng cao" hiện trong các tab của sảnh
     members: room.members.map((m) => ({ id: m.id, name: m.name, online: isOnline(m), bot: !!m.bot, auto: !!m.left })),
   };
 }

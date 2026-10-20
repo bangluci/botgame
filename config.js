@@ -272,4 +272,10 @@ function roomLists(settings) {
   return roomCache.get(settings);
 }
 
-module.exports = { resolve, describe, roomLists, sanitize, RANKS };
+// Giá trị 1 luật của phòng (chưa chỉnh thì lấy mặc định trong config/rules.json).
+function rule(settings, key) {
+  const v = settings.rules && settings.rules[key];
+  return v !== undefined ? v : loadBase().ruleDefs.find((d) => d.key === key).value;
+}
+
+module.exports = { resolve, describe, roomLists, rule, sanitize, RANKS };

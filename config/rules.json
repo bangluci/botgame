@@ -19,5 +19,8 @@
   { "key": "dodgeCity", "group": "Bộ mở rộng", "label": "Dodge City: thêm 15 nhân vật + 40 lá (lá xanh lá, lá bỏ kèm, Dodge…)", "type": "boolean", "value": false },
   { "key": "dodgeCity3p", "group": "Bộ mở rộng", "label": "Dodge City · luật 3 người chính thức (vai lật ngửa, mỗi người một mục tiêu)", "type": "boolean", "value": true },
 
-  { "key": "eventsOn", "group": "Sự kiện", "label": "Dùng lá sự kiện (từ vòng 2, mỗi vòng lật 1 lá; High Noon nằm cuối chồng)", "type": "boolean", "value": false }
+  { "key": "eventsOn", "group": "Sự kiện", "label": "Dùng lá sự kiện (từ vòng 2, mỗi vòng lật 1 lá; High Noon nằm cuối chồng)", "type": "boolean", "value": false },
+
+  { "key": "offlineTakeover", "group": "Phòng", "label": "Người rớt mạng: máy chơi thay sau (giây)", "type": "number", "value": 15, "min": 5, "max": 120, "step": 5 },
+  { "key": "idleTakeover", "group": "Phòng", "label": "Online mà không bấm gì: máy chơi thay nước đó sau (giây)", "type": "number", "value": 90, "min": 15, "max": 300, "step": 15 }
 ]

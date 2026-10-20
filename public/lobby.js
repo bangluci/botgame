@@ -119,7 +119,7 @@ function rulesTab(s, dis) {
     const v = rv(d), changed = s.rules[d.key] !== undefined && s.rules[d.key] !== d.value;
     let inp;
     if (d.type === 'boolean') inp = `<span class="switch"><input type="checkbox" data-c="rule" data-k="${d.key}" ${v ? 'checked' : ''} ${dis} aria-label="${esc(d.label)}"><i></i></span>`;
-    else if (d.type === 'number') inp = `<span class="stepper"><button type="button" class="icon-btn" data-a="step" data-k="${d.key}" data-d="-1" ${dis || (v <= d.min ? 'disabled' : '')} aria-label="Giảm">−</button><output>${v}</output><button type="button" class="icon-btn" data-a="step" data-k="${d.key}" data-d="1" ${dis || (v >= d.max ? 'disabled' : '')} aria-label="Tăng">+</button></span>`;
+    else if (d.type === 'number') inp = `<span class="stepper"><button type="button" class="icon-btn" data-a="step" data-k="${d.key}" data-d="${-(d.step || 1)}" ${dis || (v <= d.min ? 'disabled' : '')} aria-label="Giảm">−</button><output>${v}</output><button type="button" class="icon-btn" data-a="step" data-k="${d.key}" data-d="${d.step || 1}" ${dis || (v >= d.max ? 'disabled' : '')} aria-label="Tăng">+</button></span>`;
     else inp = `<select data-c="rule" data-k="${d.key}" ${dis}>${d.options.map((o) => `<option value="${esc(o[0])}" ${o[0] === v ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
     return `<label class="rule ${changed ? 'changed' : ''}"><span>${esc(d.label)}</span>${inp}</label>`;
   }).join('')}</div>`).join('');

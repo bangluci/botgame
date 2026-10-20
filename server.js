@@ -17,8 +17,8 @@ const MAX_ROOMS = 200;
 const ROOMS_PER_IP_HOUR = 30;
 const BODY_LIMIT = 2e5;
 const BOT_DELAY = process.env.BOT_DELAY_MS ? [+process.env.BOT_DELAY_MS, +process.env.BOT_DELAY_MS] : [700, 1400]; // bot "nghĩ" một chút để người xem kịp theo dõi
-const OFFLINE_TAKEOVER = 15000; // người rớt mạng: máy chơi thay sau 15 giây
-const IDLE_TAKEOVER = 90000; // online mà không bấm gì: máy chơi thay nước đó sau 90 giây
+// Máy chơi thay người rớt mạng / đứng im: số giây là luật của phòng (offlineTakeover, idleTakeover — chỉnh trong sảnh).
+const takeover = (room, key) => 1000 * config.rule(room.settings, key);
 const HOST_HANDOVER = 30000; // chủ phòng offline 30 giây thì chuyển quyền chủ phòng
 const BOT_NAMES = ['Doc', 'Wyatt', 'Annie', 'Butch', 'Belle', 'Kid', 'Pearl', 'Bat', 'Jesse', 'Sundance'];
 const EMOTES = ['👍', '😂', '😱', '😡', '🎯', '🍺', '💀', '🤠', '👏', '🙏'];
@@ -93,7 +93,7 @@ function schedule(room) {
   if (t) clearTimeout(t.h);
   const now = Date.now();
   const since = t && t.ver === g.ver ? t.since : now;
-  const at = kind === 'bot' ? now + BOT_DELAY[0] + Math.random() * (BOT_DELAY[1] - BOT_DELAY[0]) : kind === 'idle' ? since + IDLE_TAKEOVER : now + OFFLINE_TAKEOVER;
+  const at = kind === 'bot' ? now + BOT_DELAY[0] + Math.random() * (BOT_DELAY[1] - BOT_DELAY[0]) : kind === 'idle' ? since + takeover(room, 'idleTakeover') : now + takeover(room, 'offlineTakeover');
   const ver = g.ver;
   room.timer = { ver, kind, since, at, h: setTimeout(() => autoPlay(room, g, ver), Math.max(0, at - now)) };
 }

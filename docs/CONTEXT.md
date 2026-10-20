@@ -7,7 +7,10 @@
 
 ## Đã làm ngày 2026-10-20 (sau đó)
 - Dodge City phần 1, bật trong sảnh: 7 nhân vật thụ động và 18 lá — [config/characters.json](../config/characters.json) `current`, [test-scenarios.js](../test-scenarios.js) `current`.
-- Dodge City phần 2: khung kỹ năng chủ động chung và 8 nhân vật còn lại (Chuck, Doc, José, Pat, Vera, Belle, Apache, Molly), luật đối chiếu bang.dvgiochi.com và FAQ Dodge City — [engine.js](../engine.js#L390-L467) `current`. Đã chơi thử trên trình duyệt (Vera mượn Doc Holyday, bắn bằng nút kỹ năng).
+- Dodge City phần 2: khung kỹ năng chủ động chung và 8 nhân vật còn lại (Chuck, Doc, José, Pat, Vera, Belle, Apache, Molly), luật đối chiếu bang.dvgiochi.com và FAQ Dodge City — [abilities.js](../abilities.js) `current`. Đã chơi thử trên trình duyệt (Vera mượn Doc Holyday, bắn bằng nút kỹ năng).
+- Vera mượn Vulture Sam khi Vulture Sam thật còn sống: chia bài người chết theo FAQ — [vultureSplit](../combat.js#L59-L73) `current`.
+- Tách `engine.js` thành `rules.js` / `combat.js` / `abilities.js` để mỗi file dưới 800 dòng — [ARCHITECTURE.md](ARCHITECTURE.md) `current`.
+- Dodge City phần 3: 22 lá còn lại (lá xanh lá, lá "+1", Punch, Dodge, Brawl…) và luật 3 người chính thức (bật mặc định khi chơi Dodge City 3 người, tắt được trong sảnh) — [config/cards.json](../config/cards.json) `current`, [docs/specs/2026-10-20-dodge-city-phan-3-design.md](specs/2026-10-20-dodge-city-phan-3-design.md) `current`. Kiểm chứng: 26 kịch bản, fuzz 300 ván + 3×400 ván, AI 200 ván, chơi thử trên trình duyệt (dùng lá xanh lá, đỡ bằng Bible trên bàn, Springfield/Brawl bỏ kèm, mobile).
 
 ## Đã làm ngày 2026-10-19 → 2026-10-20
 - Audit 6 mảng (luật, engine, nội dung, bot, UX, server) bằng nhiều agent. Kết quả: 8 lỗi P0 (sập server, ván đơ) cùng khoảng 60 mục khác.
@@ -19,13 +22,10 @@
   - chơi thử trên trình duyệt ở cả desktop và mobile.
 
 ## Việc tiếp theo `building`
-- Dodge City phần 3: primitive lá xanh / bỏ thêm lá / BANG! miễn giới hạn cho 22 lá còn lại.
-- Luật 3 người chính thức của Dodge City (vai lật ngửa, mỗi người một mục tiêu).
 - Gom ability/effect/mod vào một registry chung, để thêm kỹ năng chỉ phải sửa một chỗ.
 - Lá/nhân vật thêm bằng "Nâng cao" của phòng chưa hiện trong các tab của sảnh.
 
 ## Cần chủ dự án quyết
-- Đưa lên GitHub: máy chưa đăng nhập `gh`, cần chủ dự án chạy `gh auth login` một lần.
 - Thời gian chờ trước khi máy chơi thay (15 giây offline / 90 giây đứng im) đang là hằng số trong `server.js`. Có muốn chỉnh trong sảnh không?
 
 ## Chưa khớp thực tế

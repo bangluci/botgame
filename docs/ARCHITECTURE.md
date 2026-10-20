@@ -5,32 +5,38 @@
 2. Client vá DOM theo vùng: vùng nào có HTML đổi mới thay. Cách này giữ focus và vị trí cuộn nhật ký — [patch](../public/app.js#L69-L78) `current`.
 3. Thao tác gửi `POST /api/action`, rồi server chạy `engine.apply` và `pushAll` để báo cả phòng.
 
-## Engine (`engine.js`)
-- Mỗi ván là một generator. Mỗi `yield prompt(...)` là một câu hỏi chờ một người trả lời — [main](../engine.js#L654-L666) `current`, [playTurn](../engine.js#L568-L627) `current`.
-- Mọi ngẫu nhiên dùng PRNG có seed: [makeRng](../engine.js#L9-L12) `current`. [newGame](../engine.js#L677-L691) nhận `seed`, còn [apply](../engine.js#L692-L710) ghi `g.actions`. Seed + chuỗi action là đủ để dựng lại ván `current`.
-- Kỹ năng chủ động khai báo trong [ACTIVE](../engine.js#L390-L423) (Sid, Chuck, Doc, José) với action `{ type: 'ability', name, cards?, target? }` `current`. Prompt `play`/`discard`/`dying` tự xử lý action này. Kỹ năng dùng "bất cứ lúc nào" (Sid) ngoài các prompt đó chạy ngay trong `apply` `current`.
-- [abilitiesFor](../engine.js#L455-L467) tính kỹ năng dùng được ngay lúc đó, gửi trong `me.abilities` (kèm lá chọn được và mục tiêu). Banner sinh nút theo danh sách này, bot cũng chọn theo nó `current`.
-- Kỹ năng bị động chen vào luồng chung: [gear](../engine.js#L27-L30) (Belle Star tắt đồ trên bàn), [apacheSafe](../engine.js#L33) (Apache Kid), [molly](../engine.js#L109-L111) (Molly Stark), [veraPick](../engine.js#L532-L546) (Vera mượn kỹ năng; `ab()` đọc thêm `p.vera`) `current`.
-- Lỗi bất ngờ trong luật được [fault](../engine.js#L562-L566) ghi log rồi chơi tiếp. Lặp quá 20 lần thì dừng ván `current`.
-- [playableFor](../engine.js#L719-L732) tính lá nào chơi được và nhắm được ai, gửi trong `me.playable` `current`.
-- Sự kiện: lật từ vòng 2; lá có `final` nằm đáy chồng và giữ tới hết ván — [nextEvent](../engine.js#L548-L559) `current`.
+## Engine (4 file)
+- `rules.js`: trạng thái chung (PRNG, rút/bỏ bài, khoảng cách, `gear`, `ab`). `combat.js`: rút!, sát thương, chết, đỡ đòn, BANG!, Duel. `abilities.js`: kỹ năng chủ động. `engine.js`: chơi lá, lượt, API, view `current`.
+- Mỗi ván là một generator. Mỗi `yield prompt(...)` là một câu hỏi chờ một người trả lời — [main](../engine.js#L380-L392) `current`, [playTurn](../engine.js#L292-L353) `current`.
+- Mọi ngẫu nhiên dùng PRNG có seed: [makeRng](../rules.js#L7-L10) `current`. [newGame](../engine.js#L403-L419) nhận `seed`, còn [apply](../engine.js#L420-L438) ghi `g.actions`. Seed + chuỗi action là đủ để dựng lại ván `current`.
+- Kỹ năng chủ động khai báo trong [ACTIVE](../abilities.js#L7-L40) (Sid, Chuck, Doc, José) với action `{ type: 'ability', name, cards?, target? }` `current`. Prompt `play`/`discard`/`dying` tự xử lý action này. Kỹ năng dùng "bất cứ lúc nào" (Sid) ngoài các prompt đó chạy ngay trong `apply` `current`.
+- [abilitiesFor](../abilities.js#L72-L84) tính kỹ năng dùng được ngay lúc đó, gửi trong `me.abilities` (kèm lá chọn được và mục tiêu). Banner sinh nút theo danh sách này, bot cũng chọn theo nó `current`.
+- Kỹ năng bị động chen vào luồng chung: [gear](../rules.js#L25-L28) (Belle Star tắt đồ trên bàn), [apacheSafe](../rules.js#L31) (Apache Kid), [molly](../rules.js#L110-L112) (Molly Stark), [veraPick](../engine.js#L256-L269) (Vera mượn kỹ năng; `ab()` đọc thêm `p.vera`), [vultureSplit](../combat.js#L59-L73) (nhiều Vulture Sam chia bài người chết) `current`.
+- Lỗi bất ngờ trong luật được [fault](../engine.js#L286-L290) ghi log rồi chơi tiếp. Lặp quá 20 lần thì dừng ván `current`.
+- [playableFor](../engine.js#L450-L470) tính lá nào chơi được và nhắm được ai, gửi trong `me.playable` (kèm `cost` cho lá "+1", `immune` cho Apache Kid) `current`.
+- Sự kiện: lật từ vòng 2; lá có `final` nằm đáy chồng và giữ tới hết ván — [nextEvent](../engine.js#L272-L283) `current`.
+- Lá xanh lá (`kind: "green"`): đặt xuống ghi `placed = g.turnNo`, [ready](../rules.js#L35) khi đã sang lượt khác. Lá có `use` dùng bằng action `{ type: 'use', card, target?, zone?, cardId? }` qua [planUse](../engine.js#L67-L76) / [execUse](../engine.js#L77-L83); [greensFor](../engine.js#L472-L478) gửi danh sách dùng được trong `me.greens` `current`.
+- Lá xanh lá có `react: "missed"` đỡ đòn ngoài lượt ngay từ trên bàn: [respondCards](../combat.js#L131-L139), [defend](../combat.js#L141-L167) (kèm `reactDraw` của Dodge/Bible) `current`.
+- Lá "+1" (`cost: 1`): action `play` mang thêm `extra` là id lá bỏ kèm, kiểm trong [planPlay](../engine.js#L9-L32) `current`.
+- Luật 3 người Dodge City (`g.threeP`): vai lật ngửa, Deputy đi trước; [threeKill](../combat.js#L76-L86) xử thắng khi tự tay hạ đúng mục tiêu, gọi từ [die](../combat.js#L87-L111) `current`.
 
 ## Cấu hình (`config.js`)
-- Gộp 3 tầng: `config/*.json` ← `custom/*.json` ← override của phòng. Có cache theo mtime — [loadBase](../config.js#L33-L41) `current`.
-- [validate](../config.js#L76-L119) kiểm kiểu và khoảng giá trị, đồng thời bắt buộc `target:"other"` cho bang/duel/steal `current`. [resolve](../config.js#L146-L173) giới hạn bộ bài trong khoảng 20–500 lá `current`.
+- Gộp 3 tầng: `config/*.json` ← `custom/*.json` ← override của phòng. Có cache theo mtime — [loadBase](../config.js#L36-L41) `current`.
+- [validate](../config.js#L79-L146) kiểm kiểu và khoảng giá trị, bắt buộc `target:"other"` cho bang/duel/steal, và chặn tổ hợp sai của lá xanh lá (`use`, `react`) / lá "+1" `current`. [resolve](../config.js#L173-L202) giới hạn bộ bài trong khoảng 20–500 lá `current`.
 
 ## Bot (`ai.js`)
-- Bot chỉ đọc view công khai. [observe](../ai.js#L28-L41) suy vai qua chuyện ai đánh ai, [score](../ai.js#L44-L52) cho điểm mục tiêu theo vai, [rank](../ai.js#L104-L157) xếp nước đi, rồi [decide](../ai.js#L177-L180) lấy nước hợp lệ đầu tiên `current`.
+- Bot chỉ đọc view công khai. [observe](../ai.js#L28-L41) suy vai qua chuyện ai đánh ai, [score](../ai.js#L45-L54) cho điểm mục tiêu theo vai (ván 3 người: ưu tiên đúng mục tiêu của mình), [rank](../ai.js#L129-L193) xếp nước đi, rồi [decide](../ai.js#L213-L216) lấy nước hợp lệ đầu tiên `current`.
 
 ## Server (`server.js`)
-- Phòng nằm trong RAM, đồng thời được ghi ra `data/rooms.json` (seed + action) qua [save](../server.js#L113-L126), và dựng lại bằng [load](../server.js#L128-L145) `current`.
-- Bot và chơi thay dùng chung một cơ chế. [schedule](../server.js#L84-L97) hẹn giờ theo 3 kiểu: bot (khoảng 1 giây), người offline (15 giây), người đứng im (90 giây). Hết giờ thì [autoPlay](../server.js#L99-L110) gọi `ai.decide` `current`.
-- Vào lại ghế cũ bằng đúng tên — [join](../server.js#L201-L218) `current`. Các lệnh có phiên nằm trong [command](../server.js#L220-L285) `current`.
+- Phòng nằm trong RAM, đồng thời được ghi ra `data/rooms.json` (seed + action) qua [save](../server.js#L114-L128), và dựng lại bằng [load](../server.js#L130-L147) `current`.
+- Bot và chơi thay dùng chung một cơ chế. [schedule](../server.js#L84-L98) hẹn giờ theo 3 kiểu: bot (khoảng 1 giây), người offline (15 giây), người đứng im (90 giây). Hết giờ thì [autoPlay](../server.js#L99-L109) gọi `ai.decide` `current`.
+- Vào lại ghế cũ bằng đúng tên — [join](../server.js#L203-L219) `current`. Các lệnh có phiên nằm trong [command](../server.js#L222-L287) `current`.
 
 ## Client (`public/`)
 - `store.js` giữ trạng thái chung và gọi API. `lobby.js` vẽ trang chủ + sảnh. `table.js` vẽ bàn chơi. `effects.js` lo âm thanh, vệt đạn, đếm ngược.
-- [seatHtml](../public/table.js#L32-L51) xếp ghế trên hình elip theo đúng thứ tự lượt bắt đầu từ người ngồi sau mình. Màn hẹp chuyển sang lưới 2 cột `current`.
-- [sync](../public/effects.js#L75-L103) so ảnh chụp cũ/mới để chạy hiệu ứng (trúng đạn, tới lượt, thắng) `current`.
+- [seatHtml](../public/table.js#L39-L59) xếp ghế trên hình elip theo đúng thứ tự lượt bắt đầu từ người ngồi sau mình. Màn hẹp chuyển sang lưới 2 cột `current`.
+- [greenBtns](../public/table.js#L102) sinh nút "Dùng …" từ `me.greens`; lá "+1" chọn thêm lá bỏ kèm ngay trên tay (dấu "BỎ KÈM") `current`.
+- [sync](../public/effects.js#L82-L118) so ảnh chụp cũ/mới để chạy hiệu ứng (trúng đạn, tới lượt, thắng) `current`.
 
 ## Chưa khớp thực tế
 | Claim | Ý định | Trạng thái | Bằng chứng |

@@ -38,9 +38,11 @@ Mọi thứ ghép từ các khối dựng sẵn, không cần viết code:
 
 | Loại | Các khối có sẵn |
 |---|---|
-| Hiệu ứng lá bài (`effect[].type`) | `bang`, `heal` (`amount`, `who:"all"`), `draw` (`n`), `steal` (`mode:"take"/"discard"`), `aoe` (`respond:"bang"/"missed"`, `damage`, `barrel`), `duel`, `store` |
+| Hiệu ứng lá bài (`effect[].type`) | `bang`, `heal` (`amount`, `who:"all"`/`"target"`), `draw` (`n`), `steal` (`mode:"take"/"discard"`), `aoe` (`respond:"bang"/"missed"`, `damage`, `barrel`), `duel`, `store`, `brawl` (mọi người khác bỏ 1 lá trên tay hoặc trên bàn) |
 | Đồ trang bị (`equip`) | `weapon` (tầm), `unlimitedBang`, `distIn` (+khoảng cách tới bạn), `distOut` (−khoảng cách bạn nhìn), `barrel`, `dynamite`, `jail` |
-| Mục tiêu (`target`, `range`) | `target`: `other`/`self`/bỏ trống; `range`: `"weapon"`, `"any"`, hoặc số 1…10. Lá có `bang`/`duel`/`steal` bắt buộc `"target": "other"` |
+| Lá xanh lá (`"kind": "green"`) | Đặt trước mặt, từ lượt sau mới dùng. `"react": "missed"`: bỏ đi để đỡ đòn như Missed! kể cả ngoài lượt. `"use": [...]`: bỏ đi trong lượt mình để chạy hiệu ứng (cùng khối với `effect`) |
+| Tuỳ chọn khác của lá | `"cost": 1` (phải bỏ kèm 1 lá khác trên tay), `"free": true` (BANG! không tính giới hạn), `"reactDraw": n` (đỡ đòn bằng lá này xong rút n lá) |
+| Mục tiêu (`target`, `range`) | `target`: `other`/`self`/`any` (chọn ai cũng được, bỏ trống là mình)/bỏ trống; `range`: `"weapon"`, `"any"`, hoặc số 1…10. Lá có `bang`/`duel`/`steal` bắt buộc `"target": "other"` |
 | Kỹ năng nhân vật (`abilities`) | `bart blackjack janet gringo jesse jourdonnais kit lucky paul pedro rose sid slab suzy vulture willy`, và của Dodge City: `pixie bill sean tequila greg herb elena chuck doc jose pat vera belle apache molly` |
 | Bộ mở rộng (`set`, `extra`) | `"set": "dodgecity"` thì lá/nhân vật chỉ vào ván khi bật luật Dodge City. `"extra": { "dodgecity": ["S:8"] }` thêm bản in cho lá có sẵn |
 | Mod sự kiện (`mods`) | `drawSuit reverse noBang drawDelta bangBonus noAbilities beerHeal rangeBonus turnStartDamage turnStartHeal turnStartDraw handcuffs vendetta handLimitDelta missedExtra`, và `"final": true` để lá đó nằm cuối chồng, lật ra là giữ tới hết ván |
@@ -89,19 +91,21 @@ Bật bằng preset **Dodge City** hoặc công tắc trong tab Luật → nhóm
   - Apache Kid: lá ♦ người khác đánh vào anh không có tác dụng (BANG!, Indians!, Panic!, Cat Balou…), trừ Duel. Đồ viền xanh vẫn dùng được.
   - Molly Stark: ngoài lượt mình, mỗi lần dùng Missed!/Beer/BANG! từ tay thì rút 1 lá. Trong Duel thì rút bù khi Duel xong.
   - Kỹ năng chủ động (Sid, Chuck, Doc, José) hiện thành nút trên banner khi dùng được.
-- **18 lá:**
-  - Binocular: như Scope.
-  - Hideout: như Mustang.
-  - Hai lá trên dùng chung được với Scope/Mustang.
+  - Vera mượn Vulture Sam khi Vulture Sam thật còn sống: hai người chia bài người chết theo FAQ.
+- **40 lá** (bộ bài thành 120 lá):
+  - Binocular: như Scope. Hideout: như Mustang. Hai lá này dùng chung được với Scope/Mustang.
   - 16 bản in thêm của BANG!, Beer, Missed!, Panic!, Cat Balou, General Store, Indians, Barrel, Mustang, Dynamite, Remington, Rev. Carabine.
-  - Bộ bài thành 98 lá.
-- **Chưa có:**
-  - 22 lá cần cơ chế mới: lá xanh, bỏ thêm 1 lá để chơi, BANG! không tính giới hạn.
-  - Vera mượn Vulture Sam khi Vulture Sam còn sống: luật chính thức chia đôi bài người chết, ở đây người gặp trước lấy hết.
+  - Lá thường: Punch (BANG! tầm 1, không tính giới hạn), Dodge (như Missed!, đỡ xong rút 1).
+  - Lá "+1" (bỏ kèm 1 lá): Springfield (BANG! mọi khoảng cách, không tính giới hạn), Whisky (hồi 2), Tequila (hồi 1 cho người bất kỳ), Brawl (mọi người khác bỏ 1 lá), Rag Time (như Panic! mọi khoảng cách).
+  - Lá xanh lá, đặt xuống rồi từ lượt sau mới dùng:
+    - đỡ đòn như Missed!: Bible (đỡ xong rút 1), Iron Plate, Sombrero, Ten Gallon Hat;
+    - dùng trong lượt mình: Canteen (hồi 1), Pony Express (rút 3), Can Can (như Cat Balou), Conestoga (như Panic! mọi khoảng cách), Knife / Derringer (BANG! tầm 1; Derringer rút thêm 1), Pepperbox (BANG! theo tầm súng), Buffalo Rifle (BANG! mọi khoảng cách), Howitzer (như Gatling).
+  - Belle Star tắt luôn lá xanh lá; Apache Kid miễn cả lá xanh lá ♦ người khác dùng vào anh.
+- **Luật 3 người chính thức** (công tắc riêng, mặc định bật): vai Deputy / Outlaw / Renegade lật ngửa, Deputy đi trước. Mỗi người có một mục tiêu: Deputy → Renegade → Outlaw → Deputy. Tự tay hạ đúng mục tiêu thì thắng ngay; mục tiêu chết vì người khác thì hai người còn lại đấu tới cuối. Hạ ai cũng rút 3 lá.
 
 ## Kiểm tra
 
-- `npm test`: chạy 2 phần. Phần đầu là `test-scenarios.js`: kịch bản kiểm từng kỹ năng Dodge City và cách tính khoảng cách. Phần sau là `node test.js 300`: bot ngẫu nhiên chơi 300 ván qua 9 biến thể luật, 2–10 người. Bất biến (số lá, máu) được kiểm sau mỗi nước, và có kiểm dựng lại ván từ seed. Khi lỗi, lệnh in ra seed, chạy lại bằng `node test.js 300 <seed>`.
+- `npm test`: chạy 2 phần. Phần đầu là `test-scenarios.js`: kịch bản kiểm từng kỹ năng, lá Dodge City, luật 3 người và cách tính khoảng cách. Phần sau là `node test.js 300`: bot ngẫu nhiên chơi 300 ván qua 9 biến thể luật, 2–10 người. Bất biến (số lá, máu) được kiểm sau mỗi nước, và có kiểm dựng lại ván từ seed. Khi lỗi, lệnh in ra seed, chạy lại bằng `node test.js 300 <seed>`.
 - `npm run test:ai` (`node test.js ai 200`): bot AI đấu nhau và đấu bot ngẫu nhiên.
 - `node bots.js MÃPHÒNG 3 [cổng]`: thêm bot qua HTTP từ máy khác (bình thường dùng nút "Thêm bot" là đủ).
 
@@ -111,8 +115,8 @@ Bật bằng preset **Dodge City** hoặc công tắc trong tab Luật → nhóm
   - bản cơ bản đầy đủ: 80 lá, 16 nhân vật, 4 vai trò, 2–10 người;
   - 15 lá sự kiện (lấy cảm hứng từ High Noon / A Fistful of Cards, cộng vài lá tự chế);
   - bot AI theo vai;
-  - Dodge City: 15 nhân vật và 18 lá (bật trong sảnh).
+  - Dodge City đầy đủ: 15 nhân vật, 40 lá và luật 3 người chính thức (bật trong sảnh).
 - Chưa có:
-  - phần còn lại của Dodge City (xem mục trên), Wild West Show, Gold Rush, The Valley of Shadows, Armed & Dangerous;
-  - luật 3 người chính thức. Bàn 2–3 người hiện là luật tự chế.
-- Kỹ năng/hiệu ứng mới ngoài danh sách trên cần thêm code ở 2 nơi: `engine.js` và danh sách cho phép trong `config.js`. Kỹ năng chủ động thêm 1 mục vào `ACTIVE` trong `engine.js` là có nút trên banner và bot dùng thử được.
+  - Wild West Show, Gold Rush, The Valley of Shadows, Armed & Dangerous;
+  - luật 2 người, và luật 3 người khi không bật Dodge City (hiện là luật tự chế).
+- Kỹ năng/hiệu ứng mới ngoài danh sách trên cần thêm code ở 2 nơi: engine (`engine.js`, `rules.js`, `combat.js` hoặc `abilities.js`) và danh sách cho phép trong `config.js`. Kỹ năng chủ động thêm 1 mục vào `ACTIVE` trong `abilities.js` là có nút trên banner và bot dùng thử được.

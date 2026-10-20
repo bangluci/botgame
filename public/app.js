@@ -12,10 +12,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function connect() {
   const id = ++loopId;
   let ver = 0, fails = 0;
+  let defs = null; // { key, val }: server chỉ gửi defs khi khoá client đang giữ khác của ván hiện tại
   (async () => {
     while (st.sess && id === loopId) {
       try {
-        const r = await fetch(`/api/poll?room=${encodeURIComponent(st.sess.room)}&token=${encodeURIComponent(st.sess.token)}&v=${ver}`, { cache: 'no-store' });
+        const r = await fetch(`/api/poll?room=${encodeURIComponent(st.sess.room)}&token=${encodeURIComponent(st.sess.token)}&v=${ver}&d=${defs ? defs.key : ''}`, { cache: 'no-store' });
         const j = await r.json();
         if (id !== loopId) return;
         if (!r.ok) {
@@ -26,7 +27,11 @@ function connect() {
         fails = 0;
         const wasRetry = st.conn !== 'ok'; st.conn = 'ok';
         ver = j.v;
-        if (!j.same) { const prev = st.S; st.S = j.data; st.skew = j.data.now - Date.now(); onState(prev); } else if (wasRetry) render();
+        if (!j.same) {
+          const g = j.data.game;
+          if (g && g.defs) defs = { key: g.defsKey, val: g.defs }; else if (g) g.defs = defs.val;
+          const prev = st.S; st.S = j.data; st.skew = j.data.now - Date.now(); onState(prev);
+        } else if (wasRetry) render();
       } catch (e) {
         if (id !== loopId) return;
         fails++;

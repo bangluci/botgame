@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
+const zlib = require('zlib');
 const engine = require('./engine');
 const config = require('./config');
 const ai = require('./ai');
@@ -62,14 +63,22 @@ function lobbyView(room, me) {
     members: room.members.map((m) => ({ id: m.id, name: m.name, online: isOnline(m), bot: !!m.bot, auto: !!m.left })),
   };
 }
-function snapshot(room, m) {
+// defs (định nghĩa lá/nhân vật của ván) chiếm ~70% mỗi ảnh chụp mà không đổi suốt ván: client gửi lại khoá
+// của bản đang giữ (?d=), trùng thì server bỏ defs ra khỏi gói.
+const defsKeys = new WeakMap();
+function defsKey(g, defs) {
+  if (!defsKeys.has(g)) defsKeys.set(g, crypto.createHash('sha1').update(JSON.stringify(defs)).digest('hex').slice(0, 12));
+  return defsKeys.get(g);
+}
+function snapshot(room, m, haveDefs) {
   const g = room.game, t = room.timer;
   const now = Date.now();
-  return {
-    now, lobby: lobbyView(room, m.id),
-    emotes: room.emotes.filter((e) => now - e.t < 6000),
-    game: g ? { ...engine.viewFor(g, m.id), deadline: t && g.pending && t.ver === g.ver && t.kind !== 'bot' ? t.at : null } : null,
-  };
+  let game = null;
+  if (g) {
+    const { defs, ...v } = engine.viewFor(g, m.id), key = defsKey(g, defs);
+    game = { ...v, defsKey: key, ...(haveDefs === key ? {} : { defs }), deadline: t && g.pending && t.ver === g.ver && t.kind !== 'bot' ? t.at : null };
+  }
+  return { now, lobby: lobbyView(room, m.id), emotes: room.emotes.filter((e) => now - e.t < 6000), game };
 }
 function pushAll(room) {
   room.version++;
@@ -148,10 +157,15 @@ function load() {
 }
 
 // ---------- HTTP ----------
+// Nén gzip khi trình duyệt nhận được (ảnh chụp ván toàn chữ lặp lại: nhỏ đi ~4 lần).
+function send(res, code, headers, data) {
+  const gz = data.length > 1024 && /^(text\/|application\/json|image\/svg)/.test(headers['Content-Type']) && /\bgzip\b/.test(res.req.headers['accept-encoding'] || '');
+  res.writeHead(code, gz ? { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' } : headers);
+  res.end(gz ? zlib.gzipSync(data) : data);
+}
 function json(res, code, obj) {
   if (res.headersSent) return;
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(obj));
+  send(res, code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(obj));
 }
 function body(req) {
   return new Promise((resolve, reject) => {
@@ -189,7 +203,8 @@ function poll(req, res, url) {
   const wasOnline = isOnline(m);
   m.lastSeen = Date.now();
   if (!wasOnline) pushAll(room);
-  const reply = () => json(res, 200, room.version > since ? { v: room.version, data: snapshot(room, m) } : { v: room.version, same: true });
+  const haveDefs = url.searchParams.get('d') || '';
+  const reply = () => json(res, 200, room.version > since ? { v: room.version, data: snapshot(room, m, haveDefs) } : { v: room.version, same: true });
   if (room.version > since) return reply();
   let done = false;
   const finish = () => { if (done) return; done = true; clearTimeout(t); m.waiters.delete(finish); m.lastSeen = Date.now(); reply(); };
@@ -324,8 +339,7 @@ function serveStatic(req, res, url) {
   if (!f.startsWith(PUB + path.sep)) { res.writeHead(403); return res.end(); }
   fs.readFile(f, (err, data) => {
     if (err) { res.writeHead(404); return res.end('Not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'Content-Security-Policy': CSP, 'X-Content-Type-Options': 'nosniff' });
-    res.end(data);
+    send(res, 200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'Content-Security-Policy': CSP, 'X-Content-Type-Options': 'nosniff' }, data);
   });
 }
 

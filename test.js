@@ -34,19 +34,27 @@ function candidates(g, pid) {
         }
         out.push({ type: 'play', card: c.id, as: 'bang', target: rnd(others).id });
       }
-      if (me.hand.length >= 2) out.push({ type: 'ability', cards: [me.hand[0].id, me.hand[1].id] });
+      if (me.hand.length >= 2) out.push({ type: 'ability', cards: [me.hand[0].id, me.hand[1].id] }); // action Sid cũ không có name
+      out.push(...abilityActs(me));
       break;
     case 'respond': out.push({ type: 'pass' }); for (const c of me.hand) out.push({ type: 'respond', card: c.id }); break;
-    case 'dying': out.push({ type: 'pass' }); for (const c of me.hand) out.push({ type: 'beer', card: c.id }); if (me.hand.length >= 2) out.push({ type: 'sid', cards: [me.hand[0].id, me.hand[1].id] }); break;
+    case 'dying': out.push({ type: 'pass' }, ...abilityActs(me)); for (const c of me.hand) out.push({ type: 'beer', card: c.id }); if (me.hand.length >= 2) out.push({ type: 'sid', cards: [me.hand[0].id, me.hand[1].id] }); break;
     case 'pick': for (const c of pr.cards) out.push({ type: 'pick', card: c.id }); break;
     case 'kit': for (const c of pr.cards) out.push({ type: 'back', card: c.id }); break;
     case 'choice': for (const o of pr.options) out.push({ type: 'choice', id: o.id }); break;
     case 'char': for (const k of pr.options) out.push({ type: 'char', key: k }); break;
     case 'suit': for (const s of 'SHDC') out.push({ type: 'suit', suit: s }); break;
-    case 'discard': for (const c of me.hand) out.push({ type: 'discard', card: c.id }); if (me.hand.length >= 2) out.push({ type: 'ability', cards: [me.hand[0].id, me.hand[1].id] }); break;
+    case 'discard': for (const c of me.hand) out.push({ type: 'discard', card: c.id }); out.push(...abilityActs(me)); break;
     default: throw new Error('prompt lạ: ' + pr.type);
   }
   return out;
+}
+// Kỹ năng engine báo dùng được: chọn lá ngẫu nhiên trong pick, thử mọi mục tiêu.
+function abilityActs(me) {
+  return me.abilities.flatMap((a) => {
+    const cards = a.pick.slice().sort(() => rand() - 0.5).slice(0, a.cards);
+    return (a.targets || [null]).map((t) => ({ type: 'ability', name: a.name, ...(a.cards ? { cards } : {}), ...(t ? { target: t } : {}) }));
+  });
 }
 function randomAction(g, pid) {
   let cands = candidates(g, pid).filter((a) => engine.check(g, pid, a) === null);
@@ -77,8 +85,8 @@ function playOne(settings, n, pickFor, maxSteps = 8000) {
   while (!g.winner) {
     if (!g.pending) throw new Error('Không có prompt nhưng chưa có người thắng');
     if (++steps > maxSteps) throw new Error('Ván quá dài (kẹt?)');
-    const sid = g.players.find((p) => p.alive && p.id !== g.pending.player && p.life < p.maxLife && p.hand.length >= 2 && engine.viewFor(g, p.id).sid);
-    if (sid && rand() < 0.05) engine.apply(g, sid.id, { type: 'ability', cards: [sid.hand[0].id, sid.hand[1].id] });
+    const sid = g.players.find((p) => p.alive && p.id !== g.pending.player && p.life < p.maxLife && p.hand.length >= 2 && engine.viewFor(g, p.id).me.abilities.some((a) => a.name === 'sid'));
+    if (sid && rand() < 0.05) engine.apply(g, sid.id, { type: 'ability', name: 'sid', cards: [sid.hand[0].id, sid.hand[1].id] });
     else { const pid = g.pending.player; engine.apply(g, pid, pickFor(g, pid)); }
     invariants(g);
   }

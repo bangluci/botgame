@@ -20,8 +20,17 @@ const cname = (g, c) => `${cdef(g, c).name} ${SYM[c.suit]}${c.rank}`;
 const say = (g, t) => { g.log.push(t); if (g.log.length > 300) g.log.shift(); };
 const alive = (g) => g.players.filter((p) => p.alive);
 const dirOf = (g) => (g.mods.reverse ? -1 : 1);
-const ab = (g, p, name) => !g.mods.noAbilities && !!(g.cfg.characters[p.char] && (g.cfg.characters[p.char].abilities || []).includes(name));
-const tableSum = (p, g, f) => p.table.reduce((s, c) => s + ((cdef(g, c).equip || {})[f] || 0), 0);
+const charAbs = (g, key) => (g.cfg.characters[key] && g.cfg.characters[key].abilities) || [];
+// Vera Custer có thêm kỹ năng của nhân vật đã mượn (p.vera) tới đầu lượt sau của cô.
+const ab = (g, p, name) => !g.mods.noAbilities && (charAbs(g, p.char).includes(name) || (!!p.vera && charAbs(g, p.vera).includes(name)));
+// Đồ trên bàn đang có tác dụng: trong lượt Belle Star, đồ của người khác coi như không có.
+function gear(g, p) {
+  const t = g.turn && g.turn !== p.id ? g.players.find((q) => q.id === g.turn) : null;
+  return t && t.alive && ab(g, t, 'belle') ? [] : p.table;
+}
+const tableSum = (p, g, f) => gear(g, p).reduce((s, c) => s + ((cdef(g, c).equip || {})[f] || 0), 0);
+// Apache Kid: lá ♦ người khác đánh vào anh không có tác dụng, trừ Duel (FAQ Dodge City Q10). Đồ viền xanh vẫn dùng bình thường.
+const apacheSafe = (g, src, t, card) => card.suit === 'D' && t !== src && ab(g, t, 'apache');
 const prompt = (player, type, data, validate) => ({ player: player.id, type, data: data || {}, validate });
 
 function nextAlive(g, p, dir = 1) {
@@ -46,11 +55,11 @@ function distance(g, a, b) {
   return Math.max(1, d);
 }
 function weaponRange(g, p) {
-  const w = p.table.map((c) => (cdef(g, c).equip || {}).weapon).filter(Boolean);
+  const w = gear(g, p).map((c) => (cdef(g, c).equip || {}).weapon).filter(Boolean);
   return (w.length ? Math.max(...w) : 1) + (g.mods.rangeBonus || 0);
 }
 function bangLimit(g, p) {
-  if (!g.rules.bangPerTurn || ab(g, p, 'willy') || p.table.some((c) => (cdef(g, c).equip || {}).unlimitedBang)) return Infinity;
+  if (!g.rules.bangPerTurn || ab(g, p, 'willy') || gear(g, p).some((c) => (cdef(g, c).equip || {}).unlimitedBang)) return Infinity;
   return g.rules.bangPerTurn + (g.mods.bangBonus || 0);
 }
 function handLimit(g, p) {
@@ -95,6 +104,11 @@ function takeTable(p, id) {
   return p.table.splice(i, 1)[0];
 }
 const heal = (g, p, n) => { const before = p.life; p.life = Math.min(p.maxLife, p.life + n); return p.life - before; };
+// Molly Stark: ngoài lượt mình, mỗi lá Missed!/Beer/BANG! tự dùng từ tay thì rút 1 lá, rút sau khi đòn đã xử lý xong.
+const mollyCard = (g, c) => { const d = cdef(g, c); return !!(d.react || d.isBeer); };
+function molly(g, p, n) {
+  if (n > 0 && p.alive && g.turn !== p.id && ab(g, p, 'molly')) { const d = drawCards(g, p, n); if (d.length) say(g, `🎀 ${p.name} rút ${d.length} lá (Molly Stark).`); }
+}
 
 // ---------- rút! ----------
 function* drawCheck(g, p, test, why) {
@@ -129,32 +143,23 @@ function* damage(g, t, amount, src, why) {
 }
 function* dying(g, t, src) {
   while (t.life <= 0) {
-    const canSid = ab(g, t, 'sid') && t.hand.length >= 2;
-    if (!beersFor(g, t).length && !canSid) break;
+    const canAb = abilitiesFor(g, t, 'dying').length > 0; // vd Sid bỏ 2 lá hồi máu
+    if (!beersFor(g, t).length && !canAb) break;
     const need = Math.ceil((1 - t.life) / Math.max(1, beerAmount(g, null, t)));
     const a = yield prompt(t, 'dying', { text: `${t.name} sắp chết! Cần ${need} Beer để cứu.`, pub: { need } }, (act) => {
       if (act.type === 'pass') return;
       if (act.type === 'beer') { if (!beersFor(g, t).some((c) => c.id === act.card)) throw new Error('Hãy chọn 1 Beer trong tay'); return; }
-      if (act.type === 'sid') { checkSid(g, t, act); return; }
+      if (act.type === 'sid' || act.type === 'ability') { checkAbility(g, t, asAbility(act), 'dying'); return; }
       throw new Error('Hành động không hợp lệ');
     });
     if (a.type === 'pass') break;
     if (a.type === 'beer') {
       const c = takeHand(g, t, a.card); g.discard.push(c); heal(g, t, beerAmount(g, null, t));
       say(g, `🍺 ${t.name} uống Beer để cứu mạng → ${t.life}/${t.maxLife}`);
-    } else sidDiscard(g, t, a);
+      molly(g, t, 1);
+    } else yield* useAbility(g, t, asAbility(a), 'dying');
   }
   if (t.life <= 0) yield* die(g, t, src);
-}
-function checkSid(g, p, act) {
-  if (!ab(g, p, 'sid')) throw new Error('Bạn không phải Sid Ketchum');
-  const ids = act.cards;
-  if (!Array.isArray(ids) || ids.length !== 2 || ids[0] === ids[1] || !ids.every((id) => p.hand.some((c) => c.id === id))) throw new Error('Chọn đúng 2 lá khác nhau trong tay');
-  if (p.life >= p.maxLife) throw new Error('Bạn đang đầy máu');
-}
-function sidDiscard(g, p, act) {
-  for (const id of act.cards) g.discard.push(takeHand(g, p, id));
-  heal(g, p, 1); say(g, `💉 ${p.name} bỏ 2 lá để hồi 1 máu (Sid) → ${p.life}/${p.maxLife}`);
 }
 function* die(g, t, src) {
   t.alive = false; t.life = Math.min(0, t.life);
@@ -205,13 +210,14 @@ function respondCards(g, p, kind) {
   });
 }
 // Trả về true nếu né được. `need` = số lần đỡ cần; `barrel` = có được dùng Barrel không.
-function* defend(g, src, t, kind, { need = 1, barrel = false, why = '' } = {}) {
+function* defend(g, src, t, kind, { need = 1, barrel = false, why = '', used = null } = {}) {
   if (barrel) {
-    const n = t.table.filter((c) => (cdef(g, c).equip || {}).barrel).length + (ab(g, t, 'jourdonnais') ? 1 : 0);
+    const n = gear(g, t).filter((c) => (cdef(g, c).equip || {}).barrel).length + (ab(g, t, 'jourdonnais') ? 1 : 0);
     for (let i = 0; i < n && need > 0 && t.alive; i++) {
       if (yield* drawCheck(g, t, (s) => s === 'H', 'Barrel')) { need--; say(g, `🛢️ ${t.name} né nhờ Barrel!`); }
     }
   }
+  let mo = 0; // số lá Molly Stark được rút bù
   while (need > 0 && t.alive) {
     const cs = respondCards(g, t, kind);
     if (cs.length < need) break; // không đủ lá để đỡ hết (vd BANG! của Slab) thì khỏi phí lá
@@ -223,7 +229,9 @@ function* defend(g, src, t, kind, { need = 1, barrel = false, why = '' } = {}) {
     if (a.type === 'pass') break;
     const c = takeHand(g, t, a.card); g.discard.push(c); need--;
     say(g, `🛡️ ${t.name} đỡ bằng ${cname(g, c)}`);
+    if (mollyCard(g, c)) mo++;
   }
+  if (used) used.set(t, (used.get(t) || 0) + mo); else molly(g, t, mo);
   return need <= 0;
 }
 function* bangAttack(g, src, t) {
@@ -234,13 +242,15 @@ function* bangAttack(g, src, t) {
 }
 function* duel(g, src, tgt) {
   let cur = tgt, other = src;
+  const used = new Map(); // Molly Stark rút bù 1 lá cho mỗi BANG! khi Duel xong
   for (;;) {
-    const ok = yield* defend(g, other, cur, 'bang', { need: 1, why: 'Duel' });
+    const ok = yield* defend(g, other, cur, 'bang', { need: 1, why: 'Duel', used });
     if (!ok || !cur.alive) break;
     [cur, other] = [other, cur];
   }
   // người chơi lá Duel luôn là "thủ phạm" (FAQ Q21/Q23): ảnh hưởng El Gringo, thưởng/phạt khi giết
   if (cur.alive) yield* damage(g, cur, 1, src, 'Duel');
+  for (const [q, n] of used) molly(g, q, n);
 }
 
 // ---------- chơi bài ----------
@@ -270,6 +280,7 @@ function planPlay(g, p, a) {
     if (range === 'weapon' && dist > weaponRange(g, p)) throw new Error(`${t.name} ở khoảng cách ${dist}, ngoài tầm súng (${weaponRange(g, p)})`);
     if (typeof range === 'number' && dist > range) throw new Error(`${t.name} ở khoảng cách ${dist}, quá xa (chỉ ${range})`);
     if (d.notSheriff && t.role === 'sheriff') throw new Error('Không thể dùng lên Cảnh sát trưởng');
+    if (d.kind === 'action' && !eff.some((e) => e.type === 'duel') && apacheSafe(g, p, t, card)) throw new Error(`${t.name} (Apache Kid) không bị ảnh hưởng bởi lá ♦`);
     if (d.equip && d.equip.jail && t.table.some((c) => (cdef(g, c).equip || {}).jail)) throw new Error('Người đó đã bị Jail rồi');
     plan.target = t;
     if (eff.some((e) => e.type === 'steal')) {
@@ -323,6 +334,7 @@ function* runEffect(g, p, e, plan) {
     case 'aoe':
       for (const t of othersFrom(g, p)) {
         if (!t.alive) continue;
+        if (apacheSafe(g, p, t, plan.card)) { say(g, `🪶 ${t.name} không bị ảnh hưởng bởi lá ♦ (Apache Kid).`); continue; }
         const ok = yield* defend(g, p, t, e.respond, { need: 1, barrel: !!e.barrel, why: d.name });
         if (!ok && t.alive) yield* damage(g, t, e.damage || 1, p, d.name);
       }
@@ -353,7 +365,7 @@ function* runEffect(g, p, e, plan) {
 }
 
 function* execPlay(g, p, a) {
-  if (a.type === 'ability') { sidDiscard(g, p, a); return; }
+  if (a.type === 'ability') { yield* useAbility(g, p, a, 'play'); return; }
   const plan = planPlay(g, p, a);
   const card = pull(p, a.card); // Suzy chỉ rút sau khi lá này xong hiệu ứng (FAQ Q22)
   const d = plan.def;
@@ -372,6 +384,89 @@ function* execPlay(g, p, a) {
 }
 const TARGETED = new Set(['bang', 'duel', 'steal']);
 
+// ---------- kỹ năng chủ động: action { type: 'ability', name, cards?, target? } ----------
+// on = loại prompt của chính người đó cho phép dùng; 'any' = lúc nào cũng được, kể cả ngoài lượt (Sid).
+// cards = số lá phải bỏ từ tay (pick lọc lá hợp lệ); why → lý do chưa dùng được; run chạy sau khi đã bỏ lá.
+const ACTIVE = {
+  sid: {
+    on: ['play', 'discard', 'dying', 'any'], cards: 2, label: '💉 Bỏ 2 lá → +1 máu',
+    why: (g, p) => p.life >= p.maxLife && 'Bạn đang đầy máu',
+    run: (g, p) => { heal(g, p, 1); say(g, `💉 ${p.name} bỏ 2 lá để hồi 1 máu (Sid) → ${p.life}/${p.maxLife}`); },
+  },
+  chuck: {
+    on: ['play'], cards: 0, label: '🩸 Mất 1 máu → rút 2 lá',
+    why: (g, p) => p.life <= 1 && 'Không được mất máu cuối cùng',
+    run: (g, p) => { p.life--; const d = drawCards(g, p, 2); say(g, `🩸 ${p.name} mất 1 máu để rút ${d.length} lá (Chuck Wengam) → ${p.life}/${p.maxLife}`); },
+  },
+  doc: {
+    on: ['play'], cards: 2, target: true, label: '🔫 Bỏ 2 lá → BANG!',
+    why: (g, p) => p.used.doc && 'Mỗi lượt chỉ dùng 1 lần',
+    // cs = null khi chỉ hỏi "có cặp lá nào bắn được không" (để tô mục tiêu)
+    reach: (g, p, t, cs) => {
+      const dist = distance(g, p, t);
+      if (dist > weaponRange(g, p)) return `${t.name} ở khoảng cách ${dist}, ngoài tầm súng (${weaponRange(g, p)})`;
+      if (ab(g, t, 'apache') && !(cs || p.hand).some((c) => c.suit !== 'D')) return 'Bắn Apache Kid thì phải có ít nhất 1 lá bỏ không phải ♦';
+      return null;
+    },
+    run: function* (g, p, cs, t) {
+      p.used.doc = true; // không tính vào giới hạn BANG! mỗi lượt
+      g.last = { pid: p.id, card: pubCard(cs[0]), target: t.id, asBang: true };
+      say(g, `🔫 ${p.name} bỏ ${cs.map((c) => cname(g, c)).join(', ')} để bắn ${t.name} (Doc Holyday)`);
+      yield* bangAttack(g, p, t);
+    },
+  },
+  jose: {
+    on: ['play'], cards: 1, pick: (g, c) => cdef(g, c).kind === 'equip', pickWhy: 'Chọn 1 lá trang bị (viền xanh) trong tay', label: '🧰 Bỏ 1 trang bị → rút 2 lá',
+    why: (g, p) => (p.used.jose || 0) >= 2 && 'Mỗi lượt chỉ dùng 2 lần',
+    run: (g, p, cs) => { p.used.jose = (p.used.jose || 0) + 1; const d = drawCards(g, p, 2); say(g, `🧰 ${p.name} bỏ ${cname(g, cs[0])} để rút ${d.length} lá (José Delgado)`); },
+  },
+};
+const INLINE = new Set(['play', 'discard', 'dying']); // prompt tự xử lý action ability; prompt khác thì ability chạy ngoài luồng
+const asAbility = (act) => (act.type === 'sid' ? { ...act, type: 'ability', name: 'sid' } : act); // action 'sid' cũ lúc sắp chết
+
+function checkAbility(g, p, act, where) {
+  const name = act.name === undefined ? 'sid' : act.name; // action Sid cũ không có name
+  const A = typeof name === 'string' && Object.hasOwn(ACTIVE, name) ? ACTIVE[name] : null;
+  if (!A || !ab(g, p, name)) throw new Error('Bạn không có kỹ năng này');
+  if (!A.on.includes(where)) throw new Error('Lúc này chưa dùng được kỹ năng này');
+  const no = A.why(g, p);
+  if (no) throw new Error(no);
+  const ids = act.cards === undefined ? [] : act.cards;
+  if (!Array.isArray(ids) || ids.length !== A.cards || new Set(ids).size !== ids.length) throw new Error(A.cards ? `Chọn đúng ${A.cards} lá khác nhau trong tay` : 'Kỹ năng này không cần bỏ lá');
+  const cs = ids.map((id) => p.hand.find((c) => c.id === id));
+  if (cs.some((c) => !c || (A.pick && !A.pick(g, c)))) throw new Error(A.pickWhy || `Chọn đúng ${A.cards} lá khác nhau trong tay`);
+  let t = null;
+  if (A.target) {
+    t = g.players.find((x) => x.id === act.target && x.alive);
+    if (!t || t === p) throw new Error('Hãy chọn 1 mục tiêu hợp lệ');
+    const bad = A.reach(g, p, t, cs);
+    if (bad) throw new Error(bad);
+  }
+  return { A, cs, t };
+}
+function* useAbility(g, p, act, where) {
+  const { A, cs, t } = checkAbility(g, p, act, where);
+  for (const c of cs) g.discard.push(pull(p, c.id));
+  const r = A.run(g, p, cs, t);
+  if (r) yield* r;
+  suzy(g, p);
+}
+// Kỹ năng dùng được ngay lúc này (client sinh nút, bot chọn theo danh sách này).
+function abilitiesFor(g, p, where) {
+  if (!p.alive || !p.char) return [];
+  const out = [];
+  for (const [name, A] of Object.entries(ACTIVE)) {
+    if (!ab(g, p, name) || !A.on.includes(where) || A.why(g, p)) continue;
+    const pick = p.hand.filter((c) => !A.pick || A.pick(g, c)).map((c) => c.id);
+    if (pick.length < A.cards) continue;
+    const targets = A.target ? g.players.filter((t) => t.alive && t !== p && !A.reach(g, p, t, null)).map((t) => t.id) : null;
+    if (targets && !targets.length) continue;
+    out.push({ name, label: A.label, cards: A.cards, pick, ...(targets ? { targets } : {}) });
+  }
+  return out;
+}
+const whereFor = (g, p) => { const pr = g.pending; return pr && pr.player === p.id && INLINE.has(pr.type) ? pr.type : 'any'; };
+
 // ---------- lượt chơi ----------
 function* drawPhase(g, p) {
   let n = g.rules.drawPerTurn + (g.mods.drawDelta || 0);
@@ -379,6 +474,19 @@ function* drawPhase(g, p) {
   if (ab(g, p, 'bill')) n += p.maxLife - p.life - 1; // Bill Noface: 1 lá + 1 lá cho mỗi máu đã mất
   n = Math.max(0, n);
   if (!n) { say(g, `${p.name} không được rút bài.`); return; }
+  if (ab(g, p, 'pat')) {
+    const loot = alive(g).flatMap((q) => q.table.map((c) => ({ q, c })));
+    if (loot.length) {
+      const a = yield prompt(p, 'choice', { text: `Pat Brennan: rút ${n} lá hay lấy 1 lá trên bàn?`, pub: { kind: 'pat', options: [{ id: 'deck', label: `Rút ${n} lá` },
+        ...loot.map(({ q, c }) => ({ id: 'c' + c.id, label: `${cname(g, c)} · ${q === p ? 'của bạn' : q.name}`, pid: q.id, card: pubCard(c) }))] } },
+      (act) => { if (act.type !== 'choice' || !(act.id === 'deck' || loot.some(({ q, c }) => 'c' + c.id === act.id && q.table.includes(c)))) throw new Error('Hãy chọn rút bài hoặc 1 lá trên bàn'); });
+      if (a.id !== 'deck') {
+        const { q, c } = loot.find((x) => 'c' + x.c.id === a.id);
+        p.hand.push(takeTable(q, c.id)); say(g, `🪢 ${p.name} lấy ${cname(g, c)} trên bàn ${q === p ? 'mình' : q.name} thay cho pha rút bài (Pat Brennan).`);
+        return;
+      }
+    }
+  }
   let got = 0;
   if (ab(g, p, 'jesse')) {
     const donors = g.players.filter((q) => q.alive && q !== p && q.hand.length);
@@ -420,6 +528,22 @@ function* drawPhase(g, p) {
   }
 }
 
+// Vera Custer: sau Dynamite/Jail, trước pha rút bài, mượn kỹ năng 1 nhân vật khác còn sống tới lượt sau.
+function* veraPick(g, p) {
+  p.vera = null;
+  if (g.mods.noAbilities) return;
+  const opts = alive(g).filter((q) => q !== p && q.char).map((q) => ({ id: q.char, label: `${g.cfg.characters[q.char].name} (${q.name})`, pid: q.id }));
+  if (!opts.length) return;
+  let key = opts[0].id;
+  if (opts.length > 1) {
+    const a = yield prompt(p, 'choice', { text: 'Vera Custer: mượn kỹ năng của ai tới lượt sau?', pub: { kind: 'vera', options: opts } },
+      (act) => { if (act.type !== 'choice' || !opts.some((o) => o.id === act.id)) throw new Error('Hãy chọn 1 nhân vật'); });
+    key = a.id;
+  }
+  p.vera = key;
+  say(g, `🎭 ${p.name} mượn kỹ năng của ${g.cfg.characters[key].name} tới lượt sau (Vera Custer).`);
+}
+
 // Chồng sự kiện xây 1 lần: lá có "final" nằm đáy, lật tới thì giữ tới hết ván. Không có lá final thì hết chồng xáo lại.
 function nextEvent(g) {
   const cur = g.event && g.cfg.events[g.event];
@@ -442,7 +566,7 @@ function fault(g, e) {
 }
 
 function* playTurn(g, p) {
-  p.bangs = 0; p.cuff = null; g.last = null;
+  p.bangs = 0; p.cuff = null; p.used = {}; g.last = null;
   if (p === g.first && !g.noEvent) { g.round++; if (g.cfg.eventsOn && g.round >= 2) nextEvent(g); }
   g.noEvent = false;
   g.turn = p.id;
@@ -468,9 +592,10 @@ function* playTurn(g, p) {
   if (jail) {
     const esc = yield* drawCheck(g, p, (s) => s === g.rules.jailEscapeSuit, 'Jail');
     takeTable(p, jail.id); g.discard.push(jail);
-    if (!esc) { say(g, `⛓️ ${p.name} ở tù, mất lượt.`); return; }
+    if (!esc) { p.vera = null; say(g, `⛓️ ${p.name} ở tù, mất lượt.`); return; } // Vera ở tù: không mượn được kỹ năng (FAQ Q13)
     say(g, `${p.name} thoát tù!`);
   }
+  if (charAbs(g, p.char).includes('vera')) yield* veraPick(g, p);
   yield* drawPhase(g, p);
   if (m.turnStartDraw) drawCards(g, p, m.turnStartDraw);
   if (m.handcuffs) {
@@ -481,7 +606,7 @@ function* playTurn(g, p) {
   while (p.alive) {
     const a = yield prompt(p, 'play', { text: `Lượt của ${p.name}` }, (act) => {
       if (act.type === 'end') return;
-      if (act.type === 'ability') return checkSid(g, p, act);
+      if (act.type === 'ability') return void checkAbility(g, p, act, 'play');
       planPlay(g, p, act);
     });
     if (a.type === 'end') break;
@@ -491,10 +616,10 @@ function* playTurn(g, p) {
   while (p.hand.length > handLimit(g, p)) {
     const over = p.hand.length - handLimit(g, p);
     const a = yield prompt(p, 'discard', { text: `${p.name} bỏ ${over} lá cho đủ giới hạn ${handLimit(g, p)}`, pub: { need: over } }, (act) => {
-      if (act.type === 'ability') return checkSid(g, p, act);
+      if (act.type === 'ability') return void checkAbility(g, p, act, 'discard');
       if (act.type !== 'discard' || !p.hand.some((c) => c.id === act.card)) throw new Error('Chọn 1 lá trong tay để bỏ');
     });
-    if (a.type === 'ability') sidDiscard(g, p, a);
+    if (a.type === 'ability') yield* useAbility(g, p, a, 'discard');
     else g.discard.push(pull(p, a.card));
   }
   suzy(g, p);
@@ -556,7 +681,7 @@ function newGame(members, settings, seed = Math.floor(Math.random() * 2 ** 32)) 
   if (!roles) throw new Error(`Chưa có cấu hình vai trò cho ${n} người`);
   const rng = makeRng(seed);
   const rl = shuffle([...roles], rng);
-  const players = shuffle(members.slice(), rng).map((m, i) => ({ id: m.id, name: m.name, role: rl[i], char: null, life: 0, maxLife: 0, hand: [], table: [], alive: true, bangs: 0, cuff: null, extraTurn: false, inExtra: false }));
+  const players = shuffle(members.slice(), rng).map((m, i) => ({ id: m.id, name: m.name, role: rl[i], char: null, life: 0, maxLife: 0, hand: [], table: [], alive: true, bangs: 0, cuff: null, used: {}, vera: null, extraTurn: false, inExtra: false }));
   let nid = 1;
   const deck = shuffle(cfg.deck.map((c) => ({ ...c, id: nid++ })), rng);
   const g = { seed, rng, actions: [], round: 0, faults: 0, cfg, rules: cfg.rules, players, deck, discard: [], log: [], mods: {}, event: null, eventDeck: [], pending: null, winner: null, turn: null, last: null, ver: 0, first: null, noEvent: false };
@@ -568,11 +693,11 @@ function apply(g, pid, action) {
   if (g.winner) throw new Error('Ván đã kết thúc');
   if (!action || typeof action !== 'object') throw new Error('Hành động không hợp lệ');
   const pr = g.pending;
-  // Sid Ketchum: bỏ 2 lá hồi 1 máu bất cứ lúc nào, kể cả ngoài lượt mình.
-  if (action.type === 'ability' && !(pr && pr.player === pid && (pr.type === 'play' || pr.type === 'discard'))) {
+  // Kỹ năng dùng "bất cứ lúc nào" (Sid Ketchum), kể cả ngoài lượt mình: chạy ngay, prompt đang chờ giữ nguyên.
+  if (action.type === 'ability' && !(pr && pr.player === pid && INLINE.has(pr.type))) {
     const p = g.players.find((x) => x.id === pid);
     if (!p || !p.alive) throw new Error('Hành động không hợp lệ');
-    checkSid(g, p, action); sidDiscard(g, p, action);
+    useAbility(g, p, action, 'any').next(); // kỹ năng 'any' không hỏi ai nên chạy xong trong 1 bước
     g.actions.push([pid, action]); g.ver++;
     return;
   }
@@ -624,14 +749,14 @@ function viewFor(g, pid) {
     ver: g.ver, round: g.round,
     players: g.players.map((p) => ({
       id: p.id, name: p.name, char: p.char, life: p.life, maxLife: p.maxLife, hand: p.hand.length, alive: p.alive,
-      table: p.table.map(pubCard), role: showRole(p) ? p.role : null,
+      table: p.table.map(pubCard), role: showRole(p) ? p.role : null, vera: p.vera || null,
       dist: me && me.alive && p.alive && p !== me ? distance(g, me, p) : null,
     })),
     me: me ? {
       hand: me.hand.map(pubCard), role: me.role, bangs: me.bangs, cuff: me.cuff, bangLimit: bangLimit(g, me) === Infinity ? 0 : bangLimit(g, me), range: weaponRange(g, me),
       playable: mine && pr.type === 'play' ? playableFor(g, me) : null,
       usable: mine ? usableFor(g, me, pr) : [],
-      sidCan: ab(g, me, 'sid') && me.alive && me.life < me.maxLife && me.hand.length >= 2,
+      abilities: abilitiesFor(g, me, whereFor(g, me)),
     } : null,
     turn: g.turn, deck: g.deck.length, discard: g.discard.length,
     discardTop: g.discard.length ? pubCard(g.discard[g.discard.length - 1]) : null,
@@ -642,7 +767,7 @@ function viewFor(g, pid) {
       cards: Object.fromEntries(Object.entries(g.cfg.cards).map(([k, c]) => [k, { name: c.name, icon: c.icon || '🂠', kind: c.kind, desc: c.desc || '', target: c.target || 'none', range: c.range, react: c.react, playable: c.playable, isBeer: !!c.isBeer, steal: (c.effect || []).some((e) => e.type === 'steal'), bang: (c.effect || []).some((e) => e.type === 'bang') }])),
       chars: Object.fromEntries(Object.entries(g.cfg.characters).map(([k, c]) => [k, { name: c.name, icon: c.icon || '🙂', life: c.life, desc: c.desc || '', abilities: c.abilities || [] }])),
     },
-    janet: me ? ab(g, me, 'janet') : false, sid: me ? ab(g, me, 'sid') : false,
+    janet: me ? ab(g, me, 'janet') : false,
   };
 }
 

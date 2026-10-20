@@ -21,5 +21,13 @@
   "tequila": { "name": "Tequila Joe", "life": 4, "icon": "🌵", "set": "dodgecity", "abilities": ["tequila"], "desc": "Mỗi lá Beer hồi 2 máu thay vì 1 (chỉ Beer)." },
   "greg": { "name": "Greg Digger", "life": 4, "icon": "⛏️", "set": "dodgecity", "abilities": ["greg"], "desc": "Mỗi khi có người khác bị loại, hồi 2 máu." },
   "herb": { "name": "Herb Hunter", "life": 4, "icon": "🦌", "set": "dodgecity", "abilities": ["herb"], "desc": "Mỗi khi có người khác bị loại, rút thêm 2 lá." },
-  "elena": { "name": "Elena Fuente", "life": 3, "icon": "🌺", "set": "dodgecity", "abilities": ["elena"], "desc": "Dùng được bất kỳ lá nào trên tay như Missed!." }
+  "elena": { "name": "Elena Fuente", "life": 3, "icon": "🌺", "set": "dodgecity", "abilities": ["elena"], "desc": "Dùng được bất kỳ lá nào trên tay như Missed!." },
+  "chuck": { "name": "Chuck Wengam", "life": 4, "icon": "🩸", "set": "dodgecity", "abilities": ["chuck"], "desc": "Trong lượt mình, mất 1 máu để rút 2 lá; dùng nhiều lần được nhưng không được mất máu cuối cùng." },
+  "doc": { "name": "Doc Holyday", "life": 4, "icon": "🩺", "set": "dodgecity", "abilities": ["doc"], "desc": "Mỗi lượt 1 lần: bỏ 2 lá trên tay để bắn hiệu ứng BANG! vào 1 người trong tầm súng, không tính giới hạn BANG!." },
+  "jose": { "name": "José Delgado", "life": 4, "icon": "🧰", "set": "dodgecity", "abilities": ["jose"], "desc": "Trong lượt mình, bỏ 1 lá trang bị (viền xanh) trên tay để rút 2 lá; tối đa 2 lần mỗi lượt." },
+  "pat": { "name": "Pat Brennan", "life": 4, "icon": "🪢", "set": "dodgecity", "abilities": ["pat"], "desc": "Pha rút bài: thay vì rút 2 lá, có thể lấy 1 lá đang nằm trên bàn của bất kỳ ai." },
+  "vera": { "name": "Vera Custer", "life": 3, "icon": "🎭", "set": "dodgecity", "abilities": ["vera"], "desc": "Đầu lượt (sau Dynamite/Jail, trước khi rút) chọn 1 nhân vật khác còn sống, có kỹ năng của người đó tới lượt sau." },
+  "belle": { "name": "Belle Star", "life": 4, "icon": "⭐", "set": "dodgecity", "abilities": ["belle"], "desc": "Trong lượt cô, đồ trên bàn người khác không có tác dụng (Barrel, Mustang, súng…)." },
+  "apache": { "name": "Apache Kid", "life": 3, "icon": "🪶", "set": "dodgecity", "abilities": ["apache"], "desc": "Lá ♦ người khác đánh vào anh không có tác dụng (trừ trong Duel)." },
+  "molly": { "name": "Molly Stark", "life": 4, "icon": "🎀", "set": "dodgecity", "abilities": ["molly"], "desc": "Ngoài lượt mình, mỗi lần dùng Missed!, Beer hoặc BANG! từ tay thì rút 1 lá (trong Duel: rút bù khi Duel xong)." }
 }

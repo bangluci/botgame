@@ -15,8 +15,13 @@ function seatOrder() {
 }
 const handCard = (id) => G().me.hand.find((c) => c.id === id);
 const playInfo = (id) => (G().me.playable || {})[id] || null;
-// Lá đang chọn nhắm được ai
+// Kỹ năng chủ động đang dùng được (server tính sẵn) và đang chọn lá cho kỹ năng nào
+const abilityOf = (name) => (G().me.abilities || []).find((a) => a.name === name) || null;
+const multiAb = () => (st.ui.multi ? abilityOf(st.ui.multi.name) : null);
+const multiReady = () => { const a = multiAb(); return !!(a && a.targets && st.ui.multi.ids.length === a.cards); };
+// Lá đang chọn (hoặc kỹ năng đã chọn đủ lá) nhắm được ai
 function selTargets() {
+  if (multiReady()) return multiAb().targets;
   const s = st.ui.sel; if (!s) return null;
   const pl = playInfo(s.id); if (!pl) return [];
   const list = s.asBang ? pl.bangTargets || [] : pl.targets;
@@ -35,7 +40,7 @@ function seatHtml(p, i, k) {
   const emote = (st.S.emotes || []).filter((e) => e.pid === p.id).pop();
   return `<div class="${cls}" style="--x:${x.toFixed(1)};--y:${y.toFixed(1)};--d:${i}" data-seat="${esc(p.id)}" data-a="${tgt ? 'player' : 'seat-info'}" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="${esc(p.name)}${tgt ? ' — chọn làm mục tiêu' : ''}">
     <div class="plate">
-      <div class="p-top"><span class="avatar">${esc(ch ? ch.icon : '🂠')}</span><div class="p-who"><b>${esc(p.name)}</b><small>${esc(ch ? ch.name : 'đang chọn…')}</small></div>${roleBadge(p.role)}</div>
+      <div class="p-top"><span class="avatar">${esc(ch ? ch.icon : '🂠')}</span><div class="p-who"><b>${esc(p.name)}</b><small>${esc(ch ? ch.name : 'đang chọn…')}${p.vera ? ` · 🎭 ${esc(charDef(p.vera).name)}` : ''}</small></div>${roleBadge(p.role)}</div>
       ${p.alive ? lifeHtml(p) : '<span class="rip">☠ Bị loại</span>'}
       <div class="p-meta"><span class="hc" title="Số lá trên tay"><i class="mini-back"></i>${p.hand}</span>${p.dist != null ? `<span class="dist" title="Khoảng cách từ bạn">↔ ${p.dist}</span>` : ''}${!m.online && !m.bot ? '<span class="tag off">offline</span>' : ''}${m.auto ? '<span class="tag auto">máy chơi thay</span>' : ''}</div>
       ${p.table.length ? `<div class="p-gear">${p.table.map(gearHtml).join('')}</div>` : ''}
@@ -63,7 +68,7 @@ function mebarHtml() {
   const emote = (st.S.emotes || []).filter((e) => e.pid === me.id).pop();
   return `<div class="mebar ${g.turn === me.id ? 'turn' : ''} ${me.alive ? '' : 'dead'}" data-seat="${esc(me.id)}">
     <button class="me-avatar" data-a="info-char" data-key="${esc(me.char || '')}" aria-label="Xem kỹ năng nhân vật">${esc(ch ? ch.icon : '🂠')}</button>
-    <div class="me-who"><b>${esc(me.name)} <small>· ${esc(ch ? ch.name : '')}</small></b><span class="me-skill">${esc(ch ? ch.desc : '')}</span></div>
+    <div class="me-who"><b>${esc(me.name)} <small>· ${esc(ch ? ch.name : '')}</small></b><span class="me-skill">${esc(ch ? ch.desc : '')}${me.vera ? ` · 🎭 Đang mượn ${esc(charDef(me.vera).name)}: ${esc(charDef(me.vera).desc)}` : ''}</span></div>
     <div class="me-stats">${me.alive ? lifeHtml(me) : '<span class="rip">☠ Đã bị loại</span>'}
       <span class="stat" title="Tầm súng">🎯 ${m.range}</span><span class="stat" title="BANG! đã bắn lượt này">🔫 ${m.bangs}${m.bangLimit ? '/' + m.bangLimit : ''}</span>${m.cuff ? `<span class="stat warn">🔗 ${SUIT_VI[m.cuff]}</span>` : ''}</div>
     <span class="role-card r-${m.role}" title="${esc(ROLE_HINT[m.role])}">${roleBadge(m.role, true)}<small>${esc(ROLE_HINT[m.role])}</small></span>
@@ -78,6 +83,13 @@ function clock() {
   const left = d ? Math.max(0, Math.ceil((d - (Date.now() + st.skew)) / 1000)) : 0;
   return d ? `<span class="clock ${left <= 10 ? 'urgent' : ''}" data-deadline="${d}" title="Hết giờ thì máy chơi thay">⏱ ${left}s</span>` : '';
 }
+// Nút cho từng kỹ năng chủ động engine báo dùng được ở prompt này
+const abilityBtns = () => (G().me.abilities || []).map((a) => `<button class="btn btn-ghost btn-sm ${st.ui.multi && st.ui.multi.name === a.name ? 'on' : ''}" data-a="ability" data-k="${esc(a.name)}">${esc(a.label)}</button>`).join('');
+function multiHint() {
+  const a = multiAb(), m = st.ui.multi;
+  if (!a) return '';
+  return multiReady() ? 'Chọn mục tiêu trên bàn — ghế sáng viền đỏ' : `Chọn ${a.cards} lá để bỏ (${m.ids.length}/${a.cards}) · bấm lại nút kỹ năng để huỷ`;
+}
 function bannerHtml() {
   const g = G(), pe = g.pending, me = meP();
   if (g.winner) return `<div class="banner end"><span class="b-icon">🏆</span><div class="b-text"><b>${esc(g.winner.text)}</b></div><div class="b-actions"><button class="btn btn-sm" data-a="show-end">Xem kết quả</button></div></div>`;
@@ -91,22 +103,20 @@ function bannerHtml() {
   switch (pe.type) {
     case 'play':
       icon = '🤠'; title = 'Lượt của bạn';
-      sub = u.multi ? `Chọn 2 lá để bỏ (${u.multi.ids.length}/2)` : u.sel ? ((selTargets() || []).length ? 'Chọn mục tiêu trên bàn — ghế sáng viền đỏ' : 'Xem lá bên dưới') : 'Chạm 1 lá để xem và chơi · xong thì kết thúc lượt';
-      if (g.me.sidCan) btns += `<button class="btn btn-ghost btn-sm" data-a="multi" data-k="ability">💉 Bỏ 2 lá → +1 máu</button>`;
-      btns += `<button class="btn btn-sm btn-primary" data-a="end"><span>Kết thúc lượt</span></button>`;
+      sub = u.multi ? multiHint() : u.sel ? ((selTargets() || []).length ? 'Chọn mục tiêu trên bàn — ghế sáng viền đỏ' : 'Xem lá bên dưới') : 'Chạm 1 lá để xem và chơi · xong thì kết thúc lượt';
+      btns += abilityBtns() + `<button class="btn btn-sm btn-primary" data-a="end"><span>Kết thúc lượt</span></button>`;
       break;
     case 'respond':
       icon = '💥'; sub = g.me.usable.length ? 'Chạm lá sáng để đỡ' : '';
       btns = `<button class="btn btn-sm btn-danger" data-a="pass">Chịu đòn</button>`;
       break;
     case 'dying':
-      icon = '☠️'; sub = g.me.usable.length ? 'Chạm Beer để uống' : '';
-      if (g.me.sidCan) btns += `<button class="btn btn-ghost btn-sm" data-a="multi" data-k="sid">💉 Bỏ 2 lá → +1 máu</button>`;
-      btns += `<button class="btn btn-sm btn-danger" data-a="pass">Chịu chết</button>`;
+      icon = '☠️'; sub = u.multi ? multiHint() : g.me.usable.length ? 'Chạm Beer để uống' : '';
+      btns += abilityBtns() + `<button class="btn btn-sm btn-danger" data-a="pass">Chịu chết</button>`;
       break;
     case 'discard':
-      icon = '🗑️'; title = `Bỏ bớt ${pe.need} lá`; sub = `Giới hạn bài cuối lượt bằng số máu (${me.life}). Chạm lá muốn bỏ.`;
-      if (g.me.sidCan) btns += `<button class="btn btn-ghost btn-sm" data-a="multi" data-k="ability">💉 Bỏ 2 lá → +1 máu</button>`;
+      icon = '🗑️'; title = `Bỏ bớt ${pe.need} lá`; sub = u.multi ? multiHint() : `Giới hạn bài cuối lượt bằng số máu (${me.life}). Chạm lá muốn bỏ.`;
+      btns += abilityBtns();
       break;
     case 'choice': icon = '🤔'; btns = pe.options.map((o) => `<button class="btn btn-ghost btn-sm" data-a="choice" data-k="${esc(o.id)}">${esc(o.label)}</button>`).join(''); break;
     case 'suit': icon = '🔗'; btns = ['S', 'H', 'D', 'C'].map((s) => `<button class="btn btn-ghost btn-sm suit-${s}" data-a="suit" data-k="${s}">${SUIT_VI[s]}</button>`).join(''); break;
@@ -135,7 +145,7 @@ function dockHtml() {
 function usable(c) {
   if (!mine()) return null;
   const pe = G().pending;
-  if (st.ui.multi) return true;
+  if (st.ui.multi) { const a = multiAb(); return !!(a && a.pick.includes(c.id)); }
   if (pe.type === 'play') return !!playInfo(c.id);
   if (pe.type === 'respond' || pe.type === 'dying' || pe.type === 'discard') return G().me.usable.includes(c.id);
   return null;
@@ -204,7 +214,7 @@ function infoModal() {
   if (inf.kind === 'char') { const c = charDef(inf.key) || {}; body = `<div class="info-big">${esc(c.icon)}</div><h3>${esc(c.name)} · ${c.life}❤</h3><p>${esc(c.desc)}</p>`; }
   if (inf.kind === 'player') {
     const p = g.players.find((x) => x.id === inf.id), c = charDef(p.char) || {}, m = member(p.id);
-    body = `<div class="info-big">${esc(c.icon || '🂠')}</div><h3>${esc(p.name)}${m.bot ? ' 🤖' : ''}</h3><p><b>${esc(c.name || '')}</b> — ${esc(c.desc || '')}</p>
+    body = `<div class="info-big">${esc(c.icon || '🂠')}</div><h3>${esc(p.name)}${m.bot ? ' 🤖' : ''}</h3><p><b>${esc(c.name || '')}</b> — ${esc(c.desc || '')}</p>${p.vera ? `<p>🎭 Đang mượn kỹ năng <b>${esc(charDef(p.vera).name)}</b> — ${esc(charDef(p.vera).desc)}</p>` : ''}
       <p>${p.role ? `Vai: <b>${esc(ROLE_VI[p.role])}</b>` : 'Vai: chưa lộ'} · ${p.alive ? `${p.life}/${p.maxLife} máu · ${p.hand} lá trên tay${p.dist != null ? ` · cách bạn ${p.dist}` : ''}` : 'đã bị loại'}</p>
       ${p.table.length ? `<div class="p-gear">${p.table.map(gearHtml).join('')}</div>` : ''}
       ${st.S.lobby.hostId === meId() && !m.bot && !m.auto && p.id !== meId() ? `<p><button class="btn btn-ghost btn-sm" data-a="takeover" data-id="${esc(p.id)}">🤖 Cho máy chơi thay người này</button></p>` : ''}`;
@@ -270,9 +280,12 @@ function onCard(el) {
   if (!mine()) { u.info = { kind: 'card', key: c.key }; u.modal = 'info'; return rerender(); }
   const pe = G().pending;
   if (u.multi) {
-    u.multi.ids = u.multi.ids.includes(id) ? u.multi.ids.filter((x) => x !== id) : [...u.multi.ids, id];
-    if (u.multi.ids.length === 2) return act({ type: u.multi.kind, cards: u.multi.ids });
-    return rerender();
+    const a = multiAb(); if (!a) { u.multi = null; return rerender(); }
+    if (u.multi.ids.includes(id)) u.multi.ids = u.multi.ids.filter((x) => x !== id);
+    else if (!a.pick.includes(id)) return toast('Lá này không dùng cho kỹ năng được');
+    else if (u.multi.ids.length < a.cards) u.multi.ids = [...u.multi.ids, id];
+    if (u.multi.ids.length === a.cards && !a.targets) return act({ type: 'ability', name: a.name, cards: u.multi.ids });
+    return rerender(); // kỹ năng cần mục tiêu: chờ chạm ghế
   }
   if (pe.type === 'play') {
     const pl = playInfo(id);
@@ -286,6 +299,7 @@ function onCard(el) {
   if (pe.type === 'discard') return act({ type: 'discard', card: id });
 }
 function onPlayer(el) {
+  if (multiReady()) return act({ type: 'ability', name: st.ui.multi.name, cards: st.ui.multi.ids, target: el.dataset.id });
   const s = st.ui.sel; if (!s) return;
   const id = el.dataset.id, c = handCard(s.id);
   if (!c) return;
@@ -305,7 +319,13 @@ export const tableActions = {
   'as-bang': () => { st.ui.sel.asBang = !st.ui.sel.asBang; rerender(); },
   unsel: () => { clearSel(); rerender(); },
   end: () => act({ type: 'end' }), pass: () => act({ type: 'pass' }),
-  multi: (el) => { st.ui.sel = null; st.ui.multi = st.ui.multi ? null : { kind: el.dataset.k, ids: [] }; rerender(); },
+  ability: (el) => {
+    const a = abilityOf(el.dataset.k); if (!a) return;
+    st.ui.sel = null;
+    if (!a.cards && !a.targets) return act({ type: 'ability', name: a.name });
+    st.ui.multi = st.ui.multi && st.ui.multi.name === a.name ? null : { name: a.name, ids: [] };
+    rerender();
+  },
   choice: (el) => act({ type: 'choice', id: el.dataset.k }),
   suit: (el) => act({ type: 'suit', suit: el.dataset.k }),
   pick: (el) => act({ type: 'pick', card: +el.dataset.id }),

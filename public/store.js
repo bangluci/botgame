@@ -8,7 +8,7 @@ export const st = {
   ui: {
     sel: null, // { id, asBang } lá đang chọn trong lượt
     zone: null, // { card, target } đang chọn lấy lá nào của mục tiêu (Panic/Cat Balou)
-    multi: null, // { kind: 'ability'|'sid', ids: [] } chọn 2 lá cho Sid Ketchum
+    multi: null, // { name, ids: [] } đang chọn lá (rồi mục tiêu) cho kỹ năng chủ động name
     modal: null, // 'help' | 'emote' | 'info' | 'log' | null
     info: null, // { kind: 'card'|'char'|'player', key, id }
     tab: 'rules', adv: '', advErr: '',

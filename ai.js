@@ -9,10 +9,12 @@ const DRAW = ['wellsfargo', 'stagecoach', 'generalstore'];
 const AOE = ['gatling', 'indians'];
 // ponytail: số Outlaw theo config/roles.json mặc định — view không lộ bảng vai; lệch nếu phòng tự sửa roles
 const OUTLAWS = { 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3, 8: 3, 9: 3, 10: 4 };
-const CHAR_BONUS = { willy: 3, slab: 3, jourdonnais: 2, bart: 2, sid: 2, lucky: 2, paul: 2, suzy: 1, jesse: 1, kit: 1, blackjack: 1, rose: 1, janet: 1, gringo: 1, vulture: 1, pedro: 1, elena: 3, pixie: 2, sean: 1, tequila: 1, greg: 1, herb: 1, bill: 1 };
+const CHAR_BONUS = { willy: 3, slab: 3, jourdonnais: 2, bart: 2, sid: 2, lucky: 2, paul: 2, suzy: 1, jesse: 1, kit: 1, blackjack: 1, rose: 1, janet: 1, gringo: 1, vulture: 1, pedro: 1, elena: 3, pixie: 2, sean: 1, tequila: 1, greg: 1, herb: 1, bill: 1,
+  doc: 3, belle: 2, apache: 2, molly: 2, chuck: 2, jose: 1, pat: 1, vera: 1 };
 const SUITS = ['H', 'D', 'C', 'S'];
 
 const newMemory = () => ({ sus: {}, seen: null });
+const abil = (v, name) => (v.me.abilities || []).find((a) => a.name === name); // kỹ năng engine báo dùng được ngay
 
 // Giá trị giữ bài: lá lạ (tự thêm) đoán theo defs.
 function val(v, c) {
@@ -57,6 +59,8 @@ function playList(v, mem, self, others, sc) {
   const P = (c, extra) => ({ type: 'play', card: c.id, ...extra });
   // rút bài chỉ khi còn bài để rút — hết chồng rút + chồng bỏ thì đánh lá rút bài chỉ xoay vòng vô tận
   const out = v.deck + (v.discard || 0) > 3 ? has((c) => DRAW.includes(c.key)).map((c) => P(c)) : [];
+  // Chuck Wengam: còn dư máu mà ít bài thì đổi 1 máu lấy 2 lá
+  if (abil(v, 'chuck') && self.life > 2 && me.hand.length <= 3) out.push({ type: 'ability', name: 'chuck' });
   // trang bị
   const hasGun = self.table.some((c) => GUN[c.key]);
   const curW = Math.max(1, ...self.table.map((c) => GUN[c.key] || 0));
@@ -79,10 +83,20 @@ function playList(v, mem, self, others, sc) {
     if (bangs.length >= 2 || e.hand <= 1) out.push(...has((c) => c.key === 'duel').map((c) => P(c, { target: e.id })));
     out.push(...bangs.map((c) => P(c, { target: e.id })));
     if (v.janet && missed.length >= 2) out.push(P(missed[0], { target: e.id, as: 'bang' })); // giữ lại 1 Missed! để đỡ
+    // Doc Holyday: bỏ 2 lá rẻ nhất để bắn thêm; bắn Apache Kid thì cặp lá không được toàn ♦
+    const doc = abil(v, 'doc');
+    if (doc && doc.targets.includes(e.id) && me.hand.length >= 3) {
+      const lo = byVal(v, me.hand), pair = lo.slice(0, 2);
+      if (e.char === 'apache' && pair.every((c) => c.suit === 'D')) pair[1] = lo.find((c) => c.suit !== 'D') || pair[1];
+      out.push({ type: 'ability', name: 'doc', cards: pair.map((c) => c.id), target: e.id });
+    }
   }
   if (enemies.length && enemies.length >= allies.length && !allies.some((p) => p.life <= 1)) out.push(...has((c) => AOE.includes(c.key)).map((c) => P(c)));
   // Sid: dư bài thì đổi 2 lá rẻ lấy 1 máu
-  if (v.sid && self.life < self.maxLife && me.hand.length > self.life + 1) { const lo = byVal(v, me.hand); out.push({ type: 'ability', cards: [lo[0].id, lo[1].id] }); }
+  if (abil(v, 'sid') && me.hand.length > self.life + 1) { const lo = byVal(v, me.hand); out.push({ type: 'ability', name: 'sid', cards: [lo[0].id, lo[1].id] }); }
+  // José Delgado: lá trang bị còn lại trên tay (không đáng đặt ra) đổi lấy 2 lá
+  const jose = abil(v, 'jose');
+  if (jose) out.push(...byVal(v, me.hand.filter((c) => jose.pick.includes(c.id))).map((c) => ({ type: 'ability', name: 'jose', cards: [c.id] })));
   out.push({ type: 'end' });
   return out;
 }
@@ -105,7 +119,7 @@ function rank(v, mem) {
       return [...lo.filter(ok).sort((a, b) => exact(a) - exact(b)).map((c) => ({ type: 'respond', card: c.id })), { type: 'pass' }];
     }
     case 'dying': return [...me.hand.filter((c) => (D[c.key] || {}).isBeer).map((c) => ({ type: 'beer', card: c.id })),
-      ...(v.sid && lo.length >= 2 ? [{ type: 'sid', cards: [lo[0].id, lo[1].id] }] : []), { type: 'pass' }];
+      ...(abil(v, 'sid') && lo.length >= 2 ? [{ type: 'sid', cards: [lo[0].id, lo[1].id] }] : []), { type: 'pass' }];
     case 'pick': {
       let cs = byVal(v, pr.cards).reverse();
       if (pr.flip) { // Lucky Duke chọn lá cho "rút!"
@@ -116,6 +130,12 @@ function rank(v, mem) {
     }
     case 'kit': return byVal(v, pr.cards).map((c) => ({ type: 'back', card: c.id }));
     case 'choice': {
+      if (pr.kind === 'pat') { // lấy đồ tốt của kẻ địch, không thì rút 2 như thường
+        const take = pr.options.filter((o) => o.card && o.pid !== self.id && val(v, o.card) >= 5 && sc(v.players.find((p) => p.id === o.pid)) > 0)
+          .sort((a, b) => val(v, b.card) - val(v, a.card));
+        return [...take.map((o) => ({ type: 'choice', id: o.id })), { type: 'choice', id: 'deck' }];
+      }
+      if (pr.kind === 'vera') return pr.options.slice().sort((a, b) => (CHAR_BONUS[b.id] || 0) - (CHAR_BONUS[a.id] || 0)).map((o) => ({ type: 'choice', id: o.id }));
       if (pr.options.some((o) => o.id === 'discard')) { // Pedro
         const top = v.discardTop && val(v, v.discardTop) >= 7;
         return [{ type: 'choice', id: top ? 'discard' : 'deck' }, { type: 'choice', id: 'deck' }];

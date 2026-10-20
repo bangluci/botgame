@@ -8,7 +8,7 @@ const CUSTOM = path.join(__dirname, 'custom');
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const EFFECTS = new Set(['bang', 'heal', 'draw', 'steal', 'aoe', 'duel', 'store']);
 const ABILITIES = new Set(['bart', 'blackjack', 'janet', 'gringo', 'jesse', 'jourdonnais', 'kit', 'lucky', 'paul', 'pedro', 'rose', 'sid', 'slab', 'suzy', 'vulture', 'willy',
-  'pixie', 'bill', 'sean', 'tequila', 'greg', 'herb', 'elena']); // dòng 2: Dodge City
+  'pixie', 'bill', 'sean', 'tequila', 'greg', 'herb', 'elena', 'chuck', 'doc', 'jose', 'pat', 'vera', 'belle', 'apache', 'molly']); // dòng 2: Dodge City
 // Bộ mở rộng -> luật bật nó. Lá/nhân vật có "set" chỉ vào ván khi luật đó bật; "extra": { set: [printings] } thêm bản in của bộ đó.
 const SETS = { dodgecity: 'dodgeCity' };
 const MODS = new Set(['drawSuit', 'reverse', 'noBang', 'drawDelta', 'bangBonus', 'noAbilities', 'beerHeal', 'rangeBonus', 'turnStartDamage', 'turnStartHeal', 'turnStartDraw', 'handcuffs', 'vendetta', 'handLimitDelta', 'missedExtra']);

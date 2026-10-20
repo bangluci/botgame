@@ -41,7 +41,7 @@ Mọi thứ ghép từ các khối dựng sẵn, không cần viết code:
 | Hiệu ứng lá bài (`effect[].type`) | `bang`, `heal` (`amount`, `who:"all"`), `draw` (`n`), `steal` (`mode:"take"/"discard"`), `aoe` (`respond:"bang"/"missed"`, `damage`, `barrel`), `duel`, `store` |
 | Đồ trang bị (`equip`) | `weapon` (tầm), `unlimitedBang`, `distIn` (+khoảng cách tới bạn), `distOut` (−khoảng cách bạn nhìn), `barrel`, `dynamite`, `jail` |
 | Mục tiêu (`target`, `range`) | `target`: `other`/`self`/bỏ trống; `range`: `"weapon"`, `"any"`, hoặc số 1…10. Lá có `bang`/`duel`/`steal` bắt buộc `"target": "other"` |
-| Kỹ năng nhân vật (`abilities`) | `bart blackjack janet gringo jesse jourdonnais kit lucky paul pedro rose sid slab suzy vulture willy`, và của Dodge City: `pixie bill sean tequila greg herb elena` |
+| Kỹ năng nhân vật (`abilities`) | `bart blackjack janet gringo jesse jourdonnais kit lucky paul pedro rose sid slab suzy vulture willy`, và của Dodge City: `pixie bill sean tequila greg herb elena chuck doc jose pat vera belle apache molly` |
 | Bộ mở rộng (`set`, `extra`) | `"set": "dodgecity"` thì lá/nhân vật chỉ vào ván khi bật luật Dodge City. `"extra": { "dodgecity": ["S:8"] }` thêm bản in cho lá có sẵn |
 | Mod sự kiện (`mods`) | `drawSuit reverse noBang drawDelta bangBonus noAbilities beerHeal rangeBonus turnStartDamage turnStartHeal turnStartDraw handcuffs vendetta handLimitDelta missedExtra`, và `"final": true` để lá đó nằm cuối chồng, lật ra là giữ tới hết ván |
 
@@ -72,7 +72,7 @@ Nếu JSON sai kiểu (máu không phải số nguyên, thiếu `target`…) th�
 ## Bộ mở rộng Dodge City
 
 Bật bằng preset **Dodge City** hoặc công tắc trong tab Luật → nhóm Bộ mở rộng. Mặc định tắt.
-- **7 nhân vật:**
+- **15 nhân vật:**
   - Pixie Pete: rút 3 lá.
   - Bill Noface: rút 1 lá + 1 lá cho mỗi máu đã mất.
   - Sean Mallory: giữ tới 10 lá.
@@ -80,6 +80,15 @@ Bật bằng preset **Dodge City** hoặc công tắc trong tab Luật → nhóm
   - Greg Digger: hồi 2 máu khi có người khác bị loại.
   - Herb Hunter: rút 2 lá khi có người khác bị loại.
   - Elena Fuente: dùng lá bất kỳ như Missed!.
+  - Chuck Wengam: trong lượt, mất 1 máu để rút 2 lá, lặp được nhưng không được mất máu cuối.
+  - Doc Holyday: mỗi lượt 1 lần, bỏ 2 lá để bắn BANG! vào người trong tầm súng, không tính giới hạn BANG!.
+  - José Delgado: tối đa 2 lần mỗi lượt, bỏ 1 lá trang bị (viền xanh) để rút 2 lá.
+  - Pat Brennan: pha rút bài có thể lấy 1 lá trên bàn của bất kỳ ai thay cho rút 2.
+  - Vera Custer: đầu lượt (sau Dynamite/Jail) mượn kỹ năng 1 nhân vật khác còn sống tới lượt sau. Ở tù mà không thoát thì không có kỹ năng.
+  - Belle Star: trong lượt cô, đồ trên bàn người khác mất tác dụng (Barrel, Mustang, súng…).
+  - Apache Kid: lá ♦ người khác đánh vào anh không có tác dụng (BANG!, Indians!, Panic!, Cat Balou…), trừ Duel. Đồ viền xanh vẫn dùng được.
+  - Molly Stark: ngoài lượt mình, mỗi lần dùng Missed!/Beer/BANG! từ tay thì rút 1 lá. Trong Duel thì rút bù khi Duel xong.
+  - Kỹ năng chủ động (Sid, Chuck, Doc, José) hiện thành nút trên banner khi dùng được.
 - **18 lá:**
   - Binocular: như Scope.
   - Hideout: như Mustang.
@@ -87,8 +96,8 @@ Bật bằng preset **Dodge City** hoặc công tắc trong tab Luật → nhóm
   - 16 bản in thêm của BANG!, Beer, Missed!, Panic!, Cat Balou, General Store, Indians, Barrel, Mustang, Dynamite, Remington, Rev. Carabine.
   - Bộ bài thành 98 lá.
 - **Chưa có:**
-  - 8 nhân vật cần kỹ năng chủ động hoặc tắt hiệu lực đồ trên bàn: Apache Kid, Belle Star, Chuck Wengam, Doc Holyday, José Delgado, Molly Stark, Pat Brennan, Vera Custer.
   - 22 lá cần cơ chế mới: lá xanh, bỏ thêm 1 lá để chơi, BANG! không tính giới hạn.
+  - Vera mượn Vulture Sam khi Vulture Sam còn sống: luật chính thức chia đôi bài người chết, ở đây người gặp trước lấy hết.
 
 ## Kiểm tra
 
@@ -102,8 +111,8 @@ Bật bằng preset **Dodge City** hoặc công tắc trong tab Luật → nhóm
   - bản cơ bản đầy đủ: 80 lá, 16 nhân vật, 4 vai trò, 2–10 người;
   - 15 lá sự kiện (lấy cảm hứng từ High Noon / A Fistful of Cards, cộng vài lá tự chế);
   - bot AI theo vai;
-  - Dodge City: 7 nhân vật và 18 lá (bật trong sảnh).
+  - Dodge City: 15 nhân vật và 18 lá (bật trong sảnh).
 - Chưa có:
   - phần còn lại của Dodge City (xem mục trên), Wild West Show, Gold Rush, The Valley of Shadows, Armed & Dangerous;
   - luật 3 người chính thức. Bàn 2–3 người hiện là luật tự chế.
-- Kỹ năng/hiệu ứng mới ngoài danh sách trên cần thêm code ở 2 nơi: `engine.js` và danh sách cho phép trong `config.js`.
+- Kỹ năng/hiệu ứng mới ngoài danh sách trên cần thêm code ở 2 nơi: `engine.js` và danh sách cho phép trong `config.js`. Kỹ năng chủ động thêm 1 mục vào `ACTIVE` trong `engine.js` là có nút trên banner và bot dùng thử được.

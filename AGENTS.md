@@ -16,6 +16,6 @@ Chỉ ghi phần khác với luật chung.
   - bảng khối dựng sẵn trong `README.md`.
 - Validate cấu hình phải chặn mọi tổ hợp làm engine ném lỗi giữa ván. Lỗi lọt qua chỉ được `fault()` ghi log, ván vẫn chạy tiếp, nhưng `test.js` coi đó là lỗi.
 - Client chỉ tô sáng lá/mục tiêu theo `me.playable` / `me.usable` do server tính. Không tự đoán luật ở client.
-- Font: **Rye** chỉ dùng cho chữ Latin không dấu (wordmark, tên lá/nhân vật tiếng Anh). Mọi chữ tiếng Việt dùng **Be Vietnam Pro**, vì Rye không có dấu tiếng Việt.
+- Font: **Alfa Slab One** (tiêu đề, tên lá, wordmark), **Old Standard TT** (nhãn, số), **Spectral** (thân bài). Cả ba có dấu tiếng Việt; font mới phải có bộ `vietnamese` trên Google Fonts (Rye thì không, đừng dùng cho chữ Việt).
 - Ngôn ngữ: UI, log, comment, docs viết tiếng Việt; tên lá/nhân vật giữ tiếng Anh như bản gốc.
 - `data/` là phòng đang lưu khi chạy, đã gitignore. Đừng commit.

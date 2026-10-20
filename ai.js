@@ -135,6 +135,10 @@ function rank(v, mem) {
           .sort((a, b) => val(v, b.card) - val(v, a.card));
         return [...take.map((o) => ({ type: 'choice', id: o.id })), { type: 'choice', id: 'deck' }];
       }
+      if (pr.kind === 'vulture') { // lá tốt trên bàn trước, không thì bốc ngẫu nhiên trên tay
+        const good = pr.options.filter((o) => o.card && val(v, o.card) >= 5).sort((a, b) => val(v, b.card) - val(v, a.card));
+        return [...good, ...pr.options.filter((o) => o.id === 'hand'), ...pr.options].map((o) => ({ type: 'choice', id: o.id }));
+      }
       if (pr.kind === 'vera') return pr.options.slice().sort((a, b) => (CHAR_BONUS[b.id] || 0) - (CHAR_BONUS[a.id] || 0)).map((o) => ({ type: 'choice', id: o.id }));
       if (pr.options.some((o) => o.id === 'discard')) { // Pedro
         const top = v.discardTop && val(v, v.discardTop) >= 7;

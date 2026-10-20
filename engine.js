@@ -161,15 +161,33 @@ function* dying(g, t, src) {
   }
   if (t.life <= 0) yield* die(g, t, src);
 }
+// ≥2 người có kỹ năng Vulture Sam (vd Vera mượn): chia lần lượt, người gần người chết nhất theo chiều kim đồng hồ chọn trước;
+// mỗi lượt lấy 1 lá ngẫu nhiên trên tay hoặc 1 lá trên bàn (FAQ Dodge City). pub.limbo = số lá đang chờ chia.
+function* vultureSplit(g, t, vul, hand, table) {
+  for (let k = 0; hand.length || table.length; k++) {
+    const q = vul[k % vul.length];
+    const opts = [...(hand.length ? [{ id: 'hand', label: `1 lá ngẫu nhiên trên tay (${hand.length})` }] : []), ...table.map((c) => ({ id: 'c' + c.id, label: cname(g, c), card: pubCard(c) }))];
+    let id = opts[0].id;
+    if (opts.length > 1) {
+      const a = yield prompt(q, 'choice', { text: `Vulture Sam: lấy lá nào của ${t.name}?`, pub: { kind: 'vulture', options: opts, limbo: hand.length + table.length } },
+        (act) => { if (act.type !== 'choice' || !opts.some((o) => o.id === act.id)) throw new Error('Hãy chọn 1 lá'); });
+      id = a.id;
+    }
+    const c = id === 'hand' ? hand.splice(Math.floor(g.rng() * hand.length), 1)[0] : table.splice(table.findIndex((x) => 'c' + x.id === id), 1)[0];
+    q.hand.push(c);
+    say(g, `🦅 ${q.name} lấy ${id === 'hand' ? '1 lá trên tay' : cname(g, c)} của ${t.name} (Vulture Sam).`);
+  }
+}
 function* die(g, t, src) {
   t.alive = false; t.life = Math.min(0, t.life);
   say(g, `☠️ ${t.name} (${g.cfg.characters[t.char].name}) bị loại! Vai trò: ${ROLE_VI[t.role]}.`);
   if (g.first === t) g.first = nextAlive(g, t, 1); // giữ mốc "vòng" khi người mở vòng chết (chế độ không Sheriff)
   // Vulture Sam nhặt bài trước, rồi mới tới thưởng/phạt (FAQ chính thức Q18)
-  const loot = t.hand.concat(t.table); t.hand = []; t.table = [];
-  const vul = g.players.find((q) => q.alive && q !== t && ab(g, q, 'vulture'));
-  if (vul && loot.length) { vul.hand.push(...loot); say(g, `🦅 ${vul.name} nhặt ${loot.length} lá của ${t.name} (Vulture Sam).`); }
-  else g.discard.push(...loot);
+  const hand = t.hand, table = t.table; t.hand = []; t.table = [];
+  const vul = othersFrom(g, t).filter((q) => ab(g, q, 'vulture')); // theo chiều kim đồng hồ từ người chết
+  if (!vul.length || !(hand.length + table.length)) g.discard.push(...hand, ...table);
+  else if (vul.length === 1) { vul[0].hand.push(...hand, ...table); say(g, `🦅 ${vul[0].name} nhặt ${hand.length + table.length} lá của ${t.name} (Vulture Sam).`); }
+  else yield* vultureSplit(g, t, vul, hand, table);
   if (src && src !== t && src.alive) {
     if (t.role === 'outlaw' && g.rules.rewardOutlawKill) { drawCards(g, src, g.rules.rewardOutlawKill); say(g, `${src.name} hạ Outlaw và rút ${g.rules.rewardOutlawKill} lá.`); }
     if (src.role === 'sheriff' && t.role === 'deputy' && g.rules.sheriffPenalty) {
@@ -726,6 +744,9 @@ function playableFor(g, p) {
     const needs = cdef(g, c).target === 'other'; // lá tự chơi bỏ qua target nên không được liệt kê mục tiêu
     const r = { self: !needs && ok(base), targets: needs ? hits({}) : [] };
     if (ab(g, p, 'janet') && cdef(g, c).react === 'missed') r.bangTargets = hits({ as: 'bang' });
+    // người không nhắm được chỉ vì Apache Kid miễn lá ♦ — client ghi 'miễn ♦' thay vì 'ngoài tầm'
+    const d = cdef(g, c);
+    if (needs && d.kind === 'action' && !(d.effect || []).some((x) => x.type === 'duel')) { const imm = others.filter((q) => !r.targets.includes(q.id) && apacheSafe(g, p, q, c)).map((q) => q.id); if (imm.length) r.immune = imm; }
     if (r.self || r.targets.length || (r.bangTargets && r.bangTargets.length)) out[c.id] = r;
   }
   return out;

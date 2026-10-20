@@ -64,7 +64,7 @@ function randomAction(g, pid) {
 }
 
 // Lá đang "lơ lửng" chờ chọn: General Store (pick) và Kit Carlson (kit). Lá rút! của Lucky đã nằm ở chồng bỏ.
-const limbo = (g) => { const d = g.pending && g.pending.data; if (!d) return 0; if (g.pending.type === 'kit') return d.priv.cards.length; return g.pending.type === 'pick' && !d.pub.flip ? d.pub.cards.length : 0; };
+const limbo = (g) => { const d = g.pending && g.pending.data; if (!d) return 0; if (d.pub && typeof d.pub.limbo === 'number') return d.pub.limbo; /* bài người chết đang chờ chia (Vulture Sam) */ if (g.pending.type === 'kit') return d.priv.cards.length; return g.pending.type === 'pick' && !d.pub.flip ? d.pub.cards.length : 0; };
 const cardCount = (g) => limbo(g) + g.deck.length + g.discard.length + g.players.reduce((s, p) => s + p.hand.length + p.table.length, 0);
 function invariants(g) {
   if (cardCount(g) !== g.cfg.deck.length) throw new Error(`Lệch số bài: ${cardCount(g)} vs ${g.cfg.deck.length}`);

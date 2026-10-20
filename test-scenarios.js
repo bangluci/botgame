@@ -221,6 +221,7 @@ test('Apache Kid: lá ♦ người khác đánh vào không có tác dụng, tr�
   const dBang = grab(g, a, (c) => c.key === 'bang' && c.suit === 'D');
   assert.throws(() => engine.apply(g, a.id, { type: 'play', card: dBang.id, target: t.id }), /Apache Kid/);
   assert.ok(!((engine.viewFor(g, a.id).me.playable[dBang.id] || {}).targets || []).includes(t.id), 'không tô Apache là mục tiêu');
+  assert.deepEqual(engine.viewFor(g, a.id).me.playable[dBang.id].immune, [t.id], 'báo Apache miễn ♦ để ghế ghi đúng lý do');
   const lives = g.players.map((q) => q.life);
   const ind = grab(g, a, (c) => c.key === 'indians' && c.suit === 'D');
   engine.apply(g, a.id, { type: 'play', card: ind.id });
@@ -258,6 +259,25 @@ test('Molly Stark: ngoài lượt dùng Missed!/BANG! thì rút 1; Duel rút bù
   const beer = grab(g3, p3, (c) => c.key === 'beer'), h3 = p3.hand.length;
   engine.apply(g3, p3.id, { type: 'play', card: beer.id });
   assert.equal(p3.hand.length, h3 - 1, 'trong lượt mình không rút');
+});
+
+test('Vulture Sam ×2 (Vera mượn): chia lần lượt từ người gần người chết nhất, chọn lá trên bàn hoặc bốc tay', () => {
+  const g = fresh(5); const a = P(g), t = next(g, a), n1 = next(g, t), n2 = next(g, n1), n3 = next(g, n2);
+  for (const q of [t, n1, n2, n3]) { q.char = 'willy'; q.vera = null; }
+  n1.char = 'vulture'; n3.char = 'vera'; n3.vera = 'vulture';
+  emptyHand(g, t); t.life = 1;
+  const h1 = grab(g, t, (c) => c.key === 'panic'), h2 = grab(g, t, (c) => c.key === 'stagecoach' || c.key === 'wellsfargo');
+  const sc = place(g, t, 'scope');
+  const n1h = n1.hand.length, n3h = n3.hand.length;
+  const bang = grab(g, a, (c) => c.key === 'bang' && c.suit !== 'D');
+  engine.apply(g, a.id, { type: 'play', card: bang.id, target: t.id });
+  assert.ok(!t.alive && !t.hand.length && !t.table.length);
+  assert.equal(g.pending.player, n1.id, 'người gần nhất theo chiều kim đồng hồ chọn trước');
+  assert.equal(engine.viewFor(g, n1.id).pending.kind, 'vulture');
+  engine.apply(g, n1.id, { type: 'choice', id: 'c' + sc.id });
+  assert.equal(n1.hand.length, n1h + 2, 'n1: Scope + 1 lá bốc tay');
+  assert.equal(n3.hand.length, n3h + 1, 'n3 (Vera): 1 lá bốc tay');
+  assert.ok(n1.hand.includes(sc) && [h1, h2].every((c) => n1.hand.includes(c) || n3.hand.includes(c)) && !g.discard.includes(h1));
 });
 
 let fail = 0;

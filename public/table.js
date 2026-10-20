@@ -221,13 +221,13 @@ function helpModal() {
       <li><b>Sắp chết</b> — uống Beer để cứu (Beer vô hiệu khi chỉ còn 2 người).</li>
       <li><b>Thắng</b> — Sheriff & Deputy: hạ hết Outlaw và Renegade. Outlaw: hạ Sheriff. Renegade: là người cuối cùng còn sống.</li>
       <li><b>Hạ Outlaw</b> được rút 3 lá. Sheriff lỡ giết Deputy thì bỏ hết bài.</li></ol>
-    <h3>Lá bài trong ván này</h3><dl class="gloss">${Object.values(g.defs.cards).map((d) => `<div><dt>${esc(d.icon)} ${esc(d.name)} <small>${d.kind === 'equip' ? 'trang bị' : 'hành động'}</small></dt><dd>${esc(d.desc)}</dd></div>`).join('')}</dl>
+    <h3>Lá bài trong ván này</h3><dl class="gloss">${Object.values(g.defs.cards).map((d) => `<div><dt>${esc(d.icon)} ${esc(d.name)} <small>${d.kind === 'equip' ? 'trang bị' : d.kind === 'green' ? 'lá xanh lá' : 'hành động'}</small></dt><dd>${esc(d.desc)}</dd></div>`).join('')}</dl>
     <h3>Nhân vật</h3><dl class="gloss">${Object.values(g.defs.chars).map((c) => `<div><dt>${esc(c.icon)} ${esc(c.name)} <small>${c.life}❤</small></dt><dd>${esc(c.desc)}</dd></div>`).join('')}</dl></div></div>`;
 }
 function infoModal() {
   const inf = st.ui.info, g = G();
   let body = '';
-  if (inf.kind === 'card') { const d = g.defs.cards[inf.key] || {}; body = `<div class="info-big">${esc(d.icon)}</div><h3>${esc(d.name)}</h3><p class="hint">${d.kind === 'equip' ? 'Lá trang bị (viền xanh) — đặt trên bàn' : 'Lá hành động (viền nâu)'}</p><p>${esc(d.desc)}</p>`; }
+  if (inf.kind === 'card') { const d = g.defs.cards[inf.key] || {}; body = `<div class="info-big">${esc(d.icon)}</div><h3>${esc(d.name)}</h3><p class="hint">${d.kind === 'equip' ? 'Lá trang bị (viền xanh) — đặt trên bàn' : d.kind === 'green' ? 'Lá xanh lá — đặt trên bàn, từ lượt sau mới dùng' : 'Lá hành động (viền nâu)'}</p><p>${esc(d.desc)}</p>`; }
   if (inf.kind === 'event') { const e = g.event || {}; body = `<div class="info-big">${esc(e.icon || '🎴')}</div><h3>${esc(e.name)}</h3><p>${esc(e.desc)}</p>${e.final ? '<p class="hint">Lá cuối chồng sự kiện — giữ tới hết ván.</p>' : ''}`; }
   if (inf.kind === 'char') { const c = charDef(inf.key) || {}; body = `<div class="info-big">${esc(c.icon)}</div><h3>${esc(c.name)} · ${c.life}❤</h3><p>${esc(c.desc)}</p>`; }
   if (inf.kind === 'player') {

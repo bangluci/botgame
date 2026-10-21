@@ -1,6 +1,7 @@
 // Trang chủ + sảnh chờ (người chơi, bot, tuỳ chỉnh luật).
 import { st, esc, toast, post, rerender, setSess, store, hooks } from './store.js';
 import { SYM, initials } from './cards.js';
+import { chatHtml, lastChatId } from './chat.js';
 
 const HERO_CARDS = [
   { icon: '🔫', name: 'BANG!', rank: 'A', suit: 'S', kind: 'action' },
@@ -95,6 +96,7 @@ function ticketHtml() {
 }
 
 function playersHtml() {
+  st.ui.chatSeen = lastChatId(); // sảnh luôn hiện khung chat: tin ở đây coi như đã đọc
   const L = st.S.lobby, host = L.hostId === L.me, max = st.meta.maxPlayers, min = st.meta.minPlayers;
   const n = L.members.length;
   return `<div class="panel players">
@@ -108,6 +110,7 @@ function playersHtml() {
     ${host ? `<button class="btn btn-primary btn-wide" data-a="start" ${n < min ? 'disabled' : ''}><span>${n < min ? `Cần ít nhất ${min} người` : 'Chia bài — bắt đầu ván'}</span><i aria-hidden="true">→</i></button>`
       : '<p class="hint center">Chờ chủ phòng chia bài…</p>'}
     ${host && n < min ? '<p class="hint center">Thiếu người? Bấm “Thêm bot”.</p>' : ''}
+    <div class="lobby-chat">${chatHtml()}</div>
   </div>`;
 }
 

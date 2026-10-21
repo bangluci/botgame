@@ -3,6 +3,7 @@ import { st, esc, toast, post, onRender, setSess, clearSel, hooks } from './stor
 import { homeHtml, lobbySkeleton, lobbyRegions, lobbyActions, lobbyChange } from './lobby.js';
 import { gameSkeleton, gameRegions, tableActions } from './table.js';
 import { sync, unlockAudio } from './effects.js';
+import { mergeChat, lastChatId, sendChat, chatActions } from './chat.js';
 
 const $app = document.getElementById('app');
 let loopId = 0;
@@ -13,10 +14,11 @@ function connect() {
   const id = ++loopId;
   let ver = 0, fails = 0;
   let defs = null; // { key, val }: server chỉ gửi defs khi khoá client đang giữ khác của ván hiện tại
+  st.chat = []; // vòng poll mới: xin lại 50 tin gần nhất
   (async () => {
     while (st.sess && id === loopId) {
       try {
-        const r = await fetch(`/api/poll?room=${encodeURIComponent(st.sess.room)}&token=${encodeURIComponent(st.sess.token)}&v=${ver}&d=${defs ? defs.key : ''}`, { cache: 'no-store' });
+        const r = await fetch(`/api/poll?room=${encodeURIComponent(st.sess.room)}&token=${encodeURIComponent(st.sess.token)}&v=${ver}&d=${defs ? defs.key : ''}&c=${lastChatId()}`, { cache: 'no-store' });
         const j = await r.json();
         if (id !== loopId) return;
         if (!r.ok) {
@@ -30,6 +32,7 @@ function connect() {
         if (!j.same) {
           const g = j.data.game;
           if (g && g.defs) defs = { key: g.defsKey, val: g.defs }; else if (g) g.defs = defs.val;
+          mergeChat(j.data.chat);
           const prev = st.S; st.S = j.data; st.skew = j.data.now - Date.now(); onState(prev);
         } else if (wasRetry) render();
       } catch (e) {
@@ -129,15 +132,19 @@ document.addEventListener('click', (e) => {
   unlockAudio();
   const el = e.target.closest('[data-a]');
   if (!el || el.disabled) return;
-  const h = appActions[el.dataset.a] || lobbyActions[el.dataset.a] || tableActions[el.dataset.a];
+  const h = appActions[el.dataset.a] || chatActions[el.dataset.a] || lobbyActions[el.dataset.a] || tableActions[el.dataset.a];
   if (!h) return;
   e.preventDefault();
   h(el, e);
 });
 document.addEventListener('change', (e) => lobbyChange(e.target));
-document.addEventListener('input', (e) => { if (e.target.id === 'adv') st.ui.adv = e.target.value; });
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'adv') st.ui.adv = e.target.value;
+  if (e.target.id === 'chat-input') st.ui.chatDraft = e.target.value;
+});
 document.addEventListener('keydown', (e) => {
   const t = e.target;
+  if (e.key === 'Enter' && t.id === 'chat-input') { e.preventDefault(); sendChat(); return; }
   if (e.key === 'Enter' && (t.id === 'code' || t.id === 'name')) { e.preventDefault(); lobbyActions[document.getElementById('code').value.trim() ? 'join' : 'create'](); return; }
   if (e.key === 'Escape' && (st.ui.modal || st.ui.zone || st.ui.sel || st.ui.multi)) { st.ui.modal = null; clearSel(); render(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && t.matches && t.matches('[role="button"][data-a]')) { e.preventDefault(); t.click(); }

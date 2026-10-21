@@ -1,5 +1,6 @@
 // Bàn chơi: ghế quanh bàn bầu dục, tay bài, banner hành động, nhật ký, các modal.
 import { st, esc, toast, post, act, rerender, clearSel, hooks } from './store.js';
+import { chatHtml, chatBubble, lastChatId, unread } from './chat.js';
 import { SYM, SUIT_VI, ROLE_VI, ROLE_HINT, ROLE_HINT_3P, G, cardDef, charDef, cardHtml, gearHtml, lifeHtml, roleBadge } from './cards.js';
 
 const meId = () => st.S.lobby.me;
@@ -45,7 +46,7 @@ function seatHtml(p, i, k) {
   const immune = far && !multiReady() && st.ui.sel && !st.ui.sel.asBang && ((playInfo(st.ui.sel.id) || {}).immune || []).includes(p.id); // Apache Kid miễn lá ♦
   const cls = ['seat', g.turn === p.id && 'turn', pe && pe.player === p.id && 'pend', !p.alive && 'dead', tgt && 'tgt', far && 'far',
     pe && pe.type === 'respond' && pe.from === p.id && 'shooter', pe && pe.type === 'respond' && pe.player === p.id && 'under-fire'].filter(Boolean).join(' ');
-  const emote = (st.S.emotes || []).filter((e) => e.pid === p.id).pop();
+  const bub = bubbleOf(p.id);
   return `<div class="${cls}" style="--x:${x.toFixed(1)};--y:${y.toFixed(1)};--d:${i}" data-seat="${esc(p.id)}" data-a="${tgt ? 'player' : 'seat-info'}" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="${esc(p.name)}${tgt ? ' — chọn làm mục tiêu' : ''}">
     <div class="plate">
       <div class="p-top"><span class="avatar">${esc(ch ? ch.icon : '🂠')}</span><div class="p-who"><b>${esc(p.name)}</b><small>${esc(ch ? ch.name : 'đang chọn…')}${p.vera ? ` · 🎭 ${esc(charDef(p.vera).name)}` : ''}</small></div>${roleBadge(p.role)}</div>
@@ -54,10 +55,15 @@ function seatHtml(p, i, k) {
       ${p.table.length ? `<div class="p-gear">${p.table.map(gearHtml).join('')}</div>` : ''}
     </div>
     ${tgt ? '<span class="crosshair" aria-hidden="true"></span>' : ''}${far ? `<span class="far-tag">${immune ? 'miễn ♦' : 'ngoài tầm'}</span>` : ''}
-    ${bubble(emote)}
+    ${bubble(bub)}
   </div>`;
 }
-const bubble = (e) => (e ? `<span class="bubble" style="animation-delay:-${Math.max(0, st.S.now - e.t)}ms" aria-hidden="true">${esc(e.e)}</span>` : '');
+// Bong bóng trên ghế: emote hoặc tin chat của người đó, cái nào mới hơn.
+function bubbleOf(pid) {
+  const em = (st.S.emotes || []).filter((e) => e.pid === pid).pop(), ch = chatBubble(pid);
+  return !em ? ch : !ch ? em : em.t >= ch.t ? em : ch;
+}
+const bubble = (e) => (e ? `<span class="bubble${e.text ? ' text' : ''}" style="animation-delay:-${Math.max(0, st.S.now - e.t)}ms" aria-hidden="true">${esc(e.e)}</span>` : '');
 
 function centerHtml() {
   const g = G(), ev = g.event, L = g.last;
@@ -73,7 +79,7 @@ function centerHtml() {
 
 function mebarHtml() {
   const g = G(), me = meP(), ch = charDef(me.char), m = g.me;
-  const emote = (st.S.emotes || []).filter((e) => e.pid === me.id).pop();
+  const bub = bubbleOf(me.id);
   return `<div class="mebar ${g.turn === me.id ? 'turn' : ''} ${me.alive ? '' : 'dead'}" data-seat="${esc(me.id)}">
     <button class="me-avatar" data-a="info-char" data-key="${esc(me.char || '')}" aria-label="Xem kỹ năng nhân vật">${esc(ch ? ch.icon : '🂠')}</button>
     <div class="me-who"><b>${esc(me.name)} <small>· ${esc(ch ? ch.name : '')}</small></b><span class="me-skill">${esc(ch ? ch.desc : '')}${me.vera ? ` · 🎭 Đang mượn ${esc(charDef(me.vera).name)}: ${esc(charDef(me.vera).desc)}` : ''}</span></div>
@@ -81,7 +87,7 @@ function mebarHtml() {
       <span class="stat" title="Tầm súng">🎯 ${m.range}</span><span class="stat" title="BANG! đã bắn lượt này">🔫 ${m.bangs}${m.bangLimit ? '/' + m.bangLimit : ''}</span>${m.cuff ? `<span class="stat warn">🔗 ${SUIT_VI[m.cuff]}</span>` : ''}</div>
     <span class="role-card r-${m.role}" title="${esc((g.threeP ? ROLE_HINT_3P : ROLE_HINT)[m.role])}">${roleBadge(m.role, true)}<small>${esc((g.threeP ? ROLE_HINT_3P : ROLE_HINT)[m.role])}</small></span>
     ${me.table.length ? `<div class="me-gear">${me.table.map(gearHtml).join('')}</div>` : ''}
-    ${bubble(emote)}
+    ${bubble(bub)}
   </div>`;
 }
 
@@ -179,15 +185,20 @@ function handHtml() {
 }
 
 // ---------- nhật ký ----------
+const logOpen = () => { const el = document.getElementById('game'); return !!(el && el.classList.contains('log-open')); };
 function logHtml() {
-  const me = meP().name;
+  const tab = st.ui.logTab;
+  const tabs = [['log', '📜 Nhật ký'], ['chat', `💬 Chat${unread() ? '<i class="dot"></i>' : ''}`]];
+  const head = `<div class="log-head"><div class="log-tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" data-a="log-tab" data-k="${k}">${t}</button>`).join('')}</div><button class="icon-btn only-narrow" data-a="log-toggle" aria-label="Đóng nhật ký">✕</button></div>`;
+  if (tab === 'chat') return head + chatHtml();
+  const me = (meP() || {}).name; // người xem: không có dòng nào là "của mình"
   const lines = G().log.map((l) => {
     const t = esc(l);
     if (l.startsWith('━━')) return `<li class="turn-h">${esc(l.replace(/━/g, '').trim())}</li>`;
-    const cls = l.startsWith('🎴 SỰ KIỆN') ? 'ev' : l.startsWith('☠️') ? 'death' : l.startsWith('🏆') ? 'win' : l.startsWith('⚠️') ? 'warn' : l.includes(me) ? 'mine' : '';
+    const cls = l.startsWith('🎴 SỰ KIỆN') ? 'ev' : l.startsWith('☠️') ? 'death' : l.startsWith('🏆') ? 'win' : l.startsWith('⚠️') ? 'warn' : me && l.includes(me) ? 'mine' : '';
     return `<li class="${cls}">${t}</li>`;
   });
-  return `<div class="log-head"><b>📜 Nhật ký</b><button class="icon-btn only-narrow" data-a="log-toggle" aria-label="Đóng nhật ký">✕</button></div><ol class="log-list">${lines.join('')}</ol>`;
+  return `${head}<ol class="log-list">${lines.join('')}</ol>`;
 }
 
 // ---------- modal ----------
@@ -263,7 +274,7 @@ function topbarHtml() {
     <button class="icon-btn" data-a="emote-open" aria-label="Gửi biểu cảm">😀</button>
     <button class="icon-btn" data-a="help" aria-label="Luật nhanh">❓</button>
     <button class="icon-btn" data-a="sound" aria-label="${st.ui.sound ? 'Tắt' : 'Bật'} âm thanh">${st.ui.sound ? '🔔' : '🔕'}</button>
-    <button class="icon-btn only-narrow" data-a="log-toggle" aria-label="Nhật ký">📜</button>
+    <button class="icon-btn only-narrow" data-a="log-toggle" aria-label="Nhật ký và chat">📜${unread() ? '<i class="dot"></i>' : ''}</button>
     ${host && !g.winner ? '<button class="btn btn-ghost btn-sm" data-a="cancel" aria-label="Huỷ ván">⏹<span class="wide-only"> Huỷ ván</span></button>' : ''}
     <button class="icon-btn" data-a="quit" aria-label="Rời ván">🚪</button>`;
 }
@@ -278,6 +289,7 @@ export const gameSkeleton = () => `<div class="game" id="game">
   <div id="g-modal"></div></div>`;
 
 export function gameRegions() {
+  if (st.ui.logTab === 'chat' && logOpen()) st.ui.chatSeen = lastChatId(); // đang mở tab Chat = đã đọc (trước khi vẽ chấm báo)
   const others = seatOrder();
   return {
     'g-top': topbarHtml(),
@@ -375,7 +387,8 @@ export const tableActions = {
   'emote-open': () => { st.ui.modal = 'emote'; rerender(); },
   emote: (el) => { st.ui.modal = null; rerender(); post('emote', { emoji: el.dataset.k }).catch((e) => toast(e.message)); },
   sound: () => { st.ui.sound = !st.ui.sound; try { localStorage.setItem('bang-sound', st.ui.sound ? 'on' : 'off'); } catch (e) { /* trình duyệt chặn lưu thì thôi */ } rerender(); },
-  'log-toggle': () => { document.getElementById('game').classList.toggle('log-open'); },
+  'log-toggle': () => { document.getElementById('game').classList.toggle('log-open'); rerender(); },
+  'log-tab': (el) => { st.ui.logTab = el.dataset.k; rerender(); },
   'show-end': () => { st.ui.hideEnd = false; rerender(); },
   'hide-end': () => { st.ui.hideEnd = true; rerender(); },
   tolobby: () => post('lobby').catch((e) => toast(e.message, 'err')),

@@ -5,6 +5,7 @@ export const st = {
   meta: null, // /api/meta
   skew: 0, // giờ server - giờ máy (ms), để đếm ngược đúng
   conn: 'ok', // 'ok' | 'retry'
+  chat: [], // tin chat của phòng (server chỉ gửi phần mới), xem chat.js
   ui: {
     sel: null, // { id, asBang } lá đang chọn trong lượt
     zone: null, // { card, target } đang chọn lấy lá nào của mục tiêu (Panic/Cat Balou)
@@ -16,6 +17,8 @@ export const st = {
     draft: null, // bản nháp settings đang chờ gửi
     hideEnd: false,
     sound: true,
+    logTab: 'log', // 'log' | 'chat' — tab đang mở trong ngăn nhật ký
+    chatDraft: '', chatSeen: 0, // chữ đang gõ; id tin chat cuối đã đọc (để báo tin mới)
   },
 };
 

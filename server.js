@@ -22,6 +22,7 @@ const BOT_DELAY = process.env.BOT_DELAY_MS ? [+process.env.BOT_DELAY_MS, +proces
 const takeover = (room, key) => 1000 * config.rule(room.settings, key);
 const HOST_HANDOVER = 30000; // chủ phòng offline 30 giây thì chuyển quyền chủ phòng
 const BOT_NAMES = ['Doc', 'Wyatt', 'Annie', 'Butch', 'Belle', 'Kid', 'Pearl', 'Bat', 'Jesse', 'Sundance'];
+const CHAT_KEEP = 50, CHAT_LEN = 200, CHAT_GAP = 1000; // giữ 50 tin, mỗi tin tối đa 200 ký tự, mỗi người 1 tin/giây
 const EMOTES = ['👍', '😂', '😱', '😡', '🎯', '🍺', '💀', '🤠', '👏', '🙏'];
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; connect-src 'self'; base-uri 'none'";
@@ -54,7 +55,7 @@ const LAN = lanAddrs();
 const newMember = (name, extra) => ({ id: rid(), token: rid(), name: cleanName(name), waiters: new Set(), lastSeen: Date.now(), ...extra });
 function newRoom(code, host) {
   const now = Date.now();
-  return { code, hostId: host.id, members: [host], game: null, gameMembers: null, created: now, lastActivity: now, version: 1, settings: config.sanitize({}), mem: {}, timer: null, emotes: [] };
+  return { code, hostId: host.id, members: [host], game: null, gameMembers: null, created: now, lastActivity: now, version: 1, settings: config.sanitize({}), mem: {}, timer: null, emotes: [], chat: [], chatSeq: 0 };
 }
 function lobbyView(room, me) {
   return {
@@ -70,7 +71,8 @@ function defsKey(g, defs) {
   if (!defsKeys.has(g)) defsKeys.set(g, crypto.createHash('sha1').update(JSON.stringify(defs)).digest('hex').slice(0, 12));
   return defsKeys.get(g);
 }
-function snapshot(room, m, haveDefs) {
+// haveChat: id tin chat mới nhất client đang giữ — chỉ gửi tin mới hơn.
+function snapshot(room, m, haveDefs, haveChat) {
   const g = room.game, t = room.timer;
   const now = Date.now();
   let game = null;
@@ -78,7 +80,7 @@ function snapshot(room, m, haveDefs) {
     const { defs, ...v } = engine.viewFor(g, m.id), key = defsKey(g, defs);
     game = { ...v, defsKey: key, ...(haveDefs === key ? {} : { defs }), deadline: t && g.pending && t.ver === g.ver && t.kind !== 'bot' ? t.at : null };
   }
-  return { now, lobby: lobbyView(room, m.id), emotes: room.emotes.filter((e) => now - e.t < 6000), game };
+  return { now, lobby: lobbyView(room, m.id), emotes: room.emotes.filter((e) => now - e.t < 6000), chat: room.chat.filter((c) => c.id > haveChat), game };
 }
 function pushAll(room) {
   room.version++;
@@ -127,7 +129,7 @@ function save() {
 function writeRooms() {
   clearTimeout(saveTimer); saveTimer = null;
   const data = [...rooms.values()].map((r) => ({
-    code: r.code, hostId: r.hostId, created: r.created, lastActivity: r.lastActivity, settings: r.settings,
+    code: r.code, hostId: r.hostId, created: r.created, lastActivity: r.lastActivity, settings: r.settings, chat: r.chat, chatSeq: r.chatSeq,
     members: r.members.map((m) => ({ id: m.id, token: m.token, name: m.name, bot: !!m.bot, left: !!m.left })),
     game: r.game ? { members: r.gameMembers, seed: r.game.seed, actions: r.game.actions } : null,
   }));
@@ -203,8 +205,8 @@ function poll(req, res, url) {
   const wasOnline = isOnline(m);
   m.lastSeen = Date.now();
   if (!wasOnline) pushAll(room);
-  const haveDefs = url.searchParams.get('d') || '';
-  const reply = () => json(res, 200, room.version > since ? { v: room.version, data: snapshot(room, m, haveDefs) } : { v: room.version, same: true });
+  const haveDefs = url.searchParams.get('d') || '', haveChat = +url.searchParams.get('c') || 0;
+  const reply = () => json(res, 200, room.version > since ? { v: room.version, data: snapshot(room, m, haveDefs, haveChat) } : { v: room.version, same: true });
   if (room.version > since) return reply();
   let done = false;
   const finish = () => { if (done) return; done = true; clearTimeout(t); m.waiters.delete(finish); m.lastSeen = Date.now(); reply(); };
@@ -287,6 +289,16 @@ function command(p, b, room, m) {
       if (!t || t === m) throw new Error('Không mời ra được người này');
       if (room.game) t.left = true;
       else room.members = room.members.filter((x) => x !== t);
+      break;
+    }
+    case '/api/chat': {
+      const text = String(b.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+      if (!text) throw new Error('Tin nhắn trống');
+      if (text.length > CHAT_LEN) throw new Error(`Tin nhắn tối đa ${CHAT_LEN} ký tự`);
+      const now = Date.now();
+      if (now - (m.lastChat || 0) < CHAT_GAP) throw new Error('Từ từ thôi 😅');
+      m.lastChat = now;
+      room.chat = [...room.chat, { id: ++room.chatSeq, pid: m.id, name: m.name, text, t: now, spec: !!m.spectator }].slice(-CHAT_KEEP);
       break;
     }
     case '/api/emote': {

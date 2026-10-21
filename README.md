@@ -6,7 +6,7 @@ Chạy: bấm đúp `start.bat` (hoặc `npm start` / `node server.js`). Không 
 - **Qua Internet:** chạy thêm `cloudflared tunnel --url http://localhost:3001` (hoặc ngrok) rồi gửi link nhận được.
 - **Chơi một mình:** ở trang chủ bấm **🤖 Chơi nhanh với 3 bot**, hoặc vào sảnh bấm **＋ Thêm bot**. Bot chạy ngay trong server, không cần mở thêm cửa sổ.
 - Luồng chơi: tạo phòng → gửi mã 4 chữ hoặc link → chủ phòng chỉnh luật → **Chia bài**.
-- **Chat:** khung chat ở sảnh, trong ván thì mở 📜 → tab **💬 Chat**. Tin mới hiện bong bóng trên ghế người gửi, chấm đỏ trên 📜 báo tin chưa đọc.
+- **Chat:** khung chat ở sảnh, trong ván thì mở 📜 → tab **💬 Chat**. Tin mới hiện bong bóng trên ghế người gửi, chấm đỏ trên 📜 báo tin chưa đọc. Trên điện thoại thì bấm 😀 là có sẵn 8 câu nói nhanh ("Bắn tao làm gì!", "Tao là Deputy, tin tao 🤠"…), chạm 1 phát là gửi.
 - **Vào trễ:** bạn vào lúc ván đang chạy (bằng tên mới) thì thành **người xem 👀**. Người xem chỉ thấy những gì cả bàn cùng thấy, chat được, và được chia bài từ ván sau. Mỗi phòng tối đa 10 người xem.
 - **Xem lại ván:** ván xong bấm **🎞️ Xem lại ván**, hoặc mở ở mục **Ván gần đây** trong sảnh (giữ 5 ván). Tua từng nước, tự chạy, chọn ghế để xem bài của người đó. Vai mọi người lật ngửa.
 - **Người mới:** lần đầu vào ván có 6 bước chỉ tay giới thiệu bàn chơi. Xem lại bằng nút ❓ → **Xem hướng dẫn trên bàn**.

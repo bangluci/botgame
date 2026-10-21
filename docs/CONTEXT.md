@@ -38,7 +38,12 @@
   - chơi thử trên trình duyệt ở cả desktop và mobile.
 
 ## Việc tiếp theo `building`
-- (trống)
+- Chơi qua Internet bằng 1 cú bấm đúp. Người khác sẽ làm.
+  - Hiện tại: lần nào cũng phải tự chạy `npm start` và tunnel riêng, và mỗi lần tunnel ra một link `*.trycloudflare.com` mới.
+  - Hướng làm: mở rộng [start.bat](../start.bat) (đang chỉ chạy `node server.js`) để bật thêm `cloudflared tunnel --url http://localhost:3001` rồi in link cho chủ phòng.
+  - `cloudflared` đã cài qua winget ở `C:\Program Files (x86)\cloudflared\cloudflared.exe`.
+  - Chủ phòng phải mở game bằng link công khai, không mở `localhost`. Mở `localhost` thì link mời trong sảnh dùng IP mạng nhà ([inviteUrl](../public/lobby.js)), bạn ở xa không vào được.
+- Link cố định (máy chủ tắt vẫn chơi được): đưa lên host chạy Node.js, hoặc dùng named tunnel của Cloudflare kèm tên miền riêng. Chưa chọn dịch vụ.
 
 ## Cần chủ dự án quyết
 - (trống)

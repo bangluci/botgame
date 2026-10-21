@@ -6,6 +6,10 @@ Chạy: bấm đúp `start.bat` (hoặc `npm start` / `node server.js`). Không 
 - **Qua Internet:** chạy thêm `cloudflared tunnel --url http://localhost:3001` (hoặc ngrok) rồi gửi link nhận được.
 - **Chơi một mình:** ở trang chủ bấm **🤖 Chơi nhanh với 3 bot**, hoặc vào sảnh bấm **＋ Thêm bot**. Bot chạy ngay trong server, không cần mở thêm cửa sổ.
 - Luồng chơi: tạo phòng → gửi mã 4 chữ hoặc link → chủ phòng chỉnh luật → **Chia bài**.
+- **Chat:** khung chat ở sảnh, trong ván thì mở 📜 → tab **💬 Chat**. Tin mới hiện bong bóng trên ghế người gửi, chấm đỏ trên 📜 báo tin chưa đọc.
+- **Vào trễ:** bạn vào lúc ván đang chạy (bằng tên mới) thì thành **người xem 👀**. Người xem chỉ thấy những gì cả bàn cùng thấy, chat được, và được chia bài từ ván sau. Mỗi phòng tối đa 10 người xem.
+- **Xem lại ván:** ván xong bấm **🎞️ Xem lại ván**, hoặc mở ở mục **Ván gần đây** trong sảnh (giữ 5 ván). Tua từng nước, tự chạy, chọn ghế để xem bài của người đó. Vai mọi người lật ngửa.
+- **Người mới:** lần đầu vào ván có 6 bước chỉ tay giới thiệu bàn chơi. Xem lại bằng nút ❓ → **Xem hướng dẫn trên bàn**.
 
 ## Khi có người rớt mạng / bỏ đi
 
@@ -103,7 +107,7 @@ Bật bằng preset **Dodge City** hoặc công tắc trong tab Luật → nhóm
 
 ## Kiểm tra
 
-- `npm test`: chạy 2 phần. Phần đầu là `test-scenarios.js`: kịch bản kiểm từng kỹ năng, lá Dodge City, luật 3 người và cách tính khoảng cách. Phần sau là `node test.js 300`: bot ngẫu nhiên chơi 300 ván qua 9 biến thể luật, 2–10 người. Bất biến (số lá, máu) được kiểm sau mỗi nước, và có kiểm dựng lại ván từ seed. Khi lỗi, lệnh in ra seed, chạy lại bằng `node test.js 300 <seed>`.
+- `npm test`: chạy 3 phần. Phần đầu là `test-scenarios.js`: kịch bản kiểm từng kỹ năng, lá Dodge City, luật 3 người và cách tính khoảng cách. Phần hai là `test-server.js`: dựng server thật ở cổng ngẫu nhiên với data tạm, kiểm chat, người xem, lịch sử và xem lại ván qua HTTP. Phần cuối là `node test.js 300`: bot ngẫu nhiên chơi 300 ván qua 9 biến thể luật, 2–10 người. Bất biến (số lá, máu) được kiểm sau mỗi nước, và có kiểm dựng lại ván từ seed. Khi lỗi, lệnh in ra seed, chạy lại bằng `node test.js 300 <seed>`.
 - `npm run test:ai` (`node test.js ai 200`): bot AI đấu nhau và đấu bot ngẫu nhiên.
 - `node bots.js MÃPHÒNG 3 [cổng]`: thêm bot qua HTTP từ máy khác (bình thường dùng nút "Thêm bot" là đủ).
 

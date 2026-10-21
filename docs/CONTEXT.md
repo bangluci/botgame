@@ -16,7 +16,17 @@
   - registry khối dựng sẵn có mô tả, kèm kịch bản kiểm registry khớp code — [config.js](../config.js#L9-L46) `current`;
   - lá/nhân vật/sự kiện tự thêm qua "Nâng cao" hiện trong các tab của sảnh `current`;
   - chủ phòng chỉnh giờ máy chơi thay ở tab Luật → Phòng `current`;
-  - gzip + chỉ gửi `defs` một lần mỗi ván. Gói poll ván Dodge City 6 người giảm từ 23 KB xuống 2,1 KB. Đo engine: `viewFor` 0,1 ms, bot 0,05 ms mỗi nước nên không cần tối ưu CPU — [server.js](../server.js#L68-L82) `current`.
+  - gzip + chỉ gửi `defs` một lần mỗi ván. Gói poll ván Dodge City 6 người giảm từ 23 KB xuống 2,1 KB. Đo engine: `viewFor` 0,1 ms, bot 0,05 ms mỗi nước nên không cần tối ưu CPU — [server.js](../server.js#L73-L88) `current`.
+
+## Đã làm ngày 2026-10-21
+- Chơi cùng bạn bè, theo spec [2026-10-21-chat-xem-van-huong-dan-design](specs/2026-10-21-chat-xem-van-huong-dan-design.md) và plan [2026-10-21-chat-xem-van-huong-dan](plans/2026-10-21-chat-xem-van-huong-dan.md):
+  - chat chữ ở sảnh và trong ván, có bong bóng trên ghế và tab Chat — [chat.js](../public/chat.js) `current`;
+  - người vào giữa ván thành người xem, ván sau lên ghế — [server.js](../server.js#L258-L279) `current`;
+  - lịch sử 5 ván, tua lại cả bàn chơi — [replay.js](../public/replay.js) `current`;
+  - hướng dẫn chỉ tay 6 bước lần đầu vào ván — [tour.js](../public/tour.js) `current`.
+- Kiểm chứng:
+  - `npm test` gồm 28 kịch bản, test-server (chat, người xem, lịch sử, xem lại, ván ghi hỏng) và fuzz 300 ván;
+  - chơi thử trên trình duyệt với 2–3 tab ở desktop và mobile 375px.
 
 ## Đã làm ngày 2026-10-19 → 2026-10-20
 - Audit 6 mảng (luật, engine, nội dung, bot, UX, server) bằng nhiều agent. Kết quả: 8 lỗi P0 (sập server, ván đơ) cùng khoảng 60 mục khác.

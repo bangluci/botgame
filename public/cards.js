@@ -12,7 +12,7 @@ export const ROLE_HINT = {
   outlaw: 'Hạ Cảnh sát trưởng.', renegade: 'Là người cuối cùng còn sống: hạ Outlaw trước, Cảnh sát trưởng sau.',
 };
 
-export const G = () => st.S && st.S.game;
+export const G = () => (st.replay && st.replay.view) || (st.S && st.S.game); // đang xem lại: ảnh chụp của bước đang xem
 export const isRed = (c) => c.suit === 'H' || c.suit === 'D';
 export const cardDef = (c) => (G() ? G().defs.cards[c.key] : null) || (st.meta && st.meta.cards.find((x) => x.key === c.key)) || { name: c.key, icon: '🂠', desc: '' };
 export const charDef = (k) => (G() ? G().defs.chars[k] : null) || (st.meta && st.meta.characters.find((x) => x.key === k)) || null;

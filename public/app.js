@@ -4,6 +4,7 @@ import { homeHtml, lobbySkeleton, lobbyRegions, lobbyActions, lobbyChange } from
 import { gameSkeleton, gameRegions, tableActions } from './table.js';
 import { sync, unlockAudio } from './effects.js';
 import { mergeChat, lastChatId, sendChat, chatActions } from './chat.js';
+import { replayBar, replayBanner, replayActions, replayChange } from './replay.js';
 
 const $app = document.getElementById('app');
 let loopId = 0;
@@ -52,7 +53,7 @@ function onState(prev) {
   if (!g) { st.ui.hideEnd = false; st.ui.modal = null; }
   if (st.ui.draft && !(st.S.lobby.hostId === me)) st.ui.draft = null;
   render();
-  if (g) sync(prev && prev.game, g, me);
+  if (g && !st.replay) sync(prev && prev.game, g, me); // đang xem lại thì không phát hiệu ứng của ván thật
 }
 async function loadMeta() {
   try {
@@ -118,7 +119,11 @@ function render() {
   }
   if (!st.meta) { screen('loading', '<main class="home"><p class="loading">Đang lên đạn…</p></main>'); return; }
   const f = focusKey();
-  if (S.lobby.started && S.game) { screen('game', gameSkeleton()); for (const [id, html] of Object.entries(gameRegions())) patch(id, html); }
+  if (st.replay) { // xem lại ván: vẽ bàn chơi ở chế độ chỉ xem
+    if (!st.replay.view) { screen('loading', '<main class="home"><p class="loading">Đang tua lại ván…</p></main>'); return; }
+    screen('replay', gameSkeleton());
+    for (const [id, html] of Object.entries({ ...gameRegions(), 'g-top': replayBar(), 'g-banner': replayBanner() })) patch(id, html);
+  } else if (S.lobby.started && S.game) { screen('game', gameSkeleton()); for (const [id, html] of Object.entries(gameRegions())) patch(id, html); }
   else { screen('lobby', lobbySkeleton()); for (const [id, html] of Object.entries(lobbyRegions())) patch(id, html); }
   restoreFocus(f);
 }
@@ -132,12 +137,12 @@ document.addEventListener('click', (e) => {
   unlockAudio();
   const el = e.target.closest('[data-a]');
   if (!el || el.disabled) return;
-  const h = appActions[el.dataset.a] || chatActions[el.dataset.a] || lobbyActions[el.dataset.a] || tableActions[el.dataset.a];
+  const h = appActions[el.dataset.a] || chatActions[el.dataset.a] || replayActions[el.dataset.a] || lobbyActions[el.dataset.a] || tableActions[el.dataset.a];
   if (!h) return;
   e.preventDefault();
   h(el, e);
 });
-document.addEventListener('change', (e) => lobbyChange(e.target));
+document.addEventListener('change', (e) => { replayChange(e.target); lobbyChange(e.target); });
 document.addEventListener('input', (e) => {
   if (e.target.id === 'adv') st.ui.adv = e.target.value;
   if (e.target.id === 'chat-input') st.ui.chatDraft = e.target.value;

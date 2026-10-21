@@ -368,3 +368,8 @@
   .hand .card.sel::after { font-size: 13px; }
   .peek { left: 10px; right: 10px; top: auto; bottom: 240px; }
 }
+
+/* ---------- xem lại ván ---------- */
+.rp-range { flex: 1 1 140px; min-width: 100px; accent-color: var(--stamp); }
+.rp-seat { flex: 0 1 200px; min-width: 0; padding: 5px 8px; font: 700 13px var(--font-label); }
+.b-text .warn { color: var(--stamp); font-style: italic; }

@@ -3,10 +3,10 @@ import { st, esc, toast, post, act, rerender, clearSel, hooks } from './store.js
 import { chatHtml, chatBubble, lastChatId, unread } from './chat.js';
 import { SYM, SUIT_VI, ROLE_VI, ROLE_HINT, ROLE_HINT_3P, G, cardDef, charDef, cardHtml, gearHtml, lifeHtml, roleBadge } from './cards.js';
 
-const meId = () => st.S.lobby.me;
+const meId = () => (st.replay ? st.replay.pid : st.S.lobby.me); // xem lại: ghế đang chọn
 const meP = () => G().players.find((p) => p.id === meId());
 const nameOf = (id) => { const p = G().players.find((x) => x.id === id); return p ? p.name : '?'; };
-const mine = () => { const pe = G().pending; return !!(pe && pe.player === meId()); };
+const mine = () => { const pe = G().pending; return !st.replay && !!(pe && pe.player === meId()); };
 const member = (id) => st.S.lobby.members.find((m) => m.id === id) || {};
 
 // Người ngồi sau mình theo chiều lượt đi trước — đúng thứ tự ghế quanh bàn. Người xem (không có ghế): bắt đầu từ Sheriff.
@@ -211,7 +211,7 @@ function endModal() {
   const g = G(), w = g.winner;
   return `<div class="modal"><div class="sheet end-sheet"><div class="end-star" aria-hidden="true">★</div><h2>${esc(w.text)}</h2>
     <ul class="end-list">${g.players.map((p) => { const ch = charDef(p.char); const won = w.players.includes(p.id); return `<li class="${won ? 'won' : ''} ${p.alive ? '' : 'dead'}"><span class="avatar">${esc(ch ? ch.icon : '')}</span><span class="e-name"><b>${esc(p.name)}</b><small>${esc(ch ? ch.name : '')}</small></span>${roleBadge(p.role, true)}${won ? '<span class="trophy">🏆</span>' : ''}</li>`; }).join('')}</ul>
-    <div class="row center"><button class="btn btn-primary" data-a="tolobby"><span>Về sảnh — chơi ván mới</span><i aria-hidden="true">→</i></button><button class="btn btn-ghost" data-a="hide-end">Xem lại bàn</button></div></div></div>`;
+    <div class="row center"><button class="btn btn-primary" data-a="tolobby"><span>Về sảnh — chơi ván mới</span><i aria-hidden="true">→</i></button>${(st.S.lobby.history || []).length ? '<button class="btn btn-ghost" data-a="replay-last">🎞️ Xem lại ván</button>' : ''}<button class="btn btn-ghost" data-a="hide-end">Xem bàn</button></div></div></div>`;
 }
 function zoneModal() {
   const z = st.ui.zone, t = G().players.find((p) => p.id === z.target);
@@ -260,7 +260,7 @@ function emoteModal() {
 }
 function modalHtml() {
   const g = G(), u = st.ui;
-  if (g.winner && !u.hideEnd) return endModal();
+  if (g.winner && !u.hideEnd && !st.replay) return endModal();
   if (u.modal === 'help') return helpModal();
   if (u.modal === 'info' && u.info) return infoModal();
   if (u.modal === 'emote') return emoteModal();

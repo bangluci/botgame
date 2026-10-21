@@ -176,12 +176,20 @@ function settingsHtml(host) {
   </div>`;
 }
 
+// Ván đã xong gần đây (server giữ 5 ván) — mở xem lại.
+function recentHtml() {
+  const list = st.S.lobby.history || [];
+  if (!list.length) return '';
+  const time = (t) => new Date(t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return `<div class="panel recent"><div class="panel-head"><h2>Ván gần đây</h2></div><ul class="recent-list">${list.map((h) => `<li><span class="r-text"><b>${esc(h.text)}</b><small>${time(h.ended)} · ${h.n} người · ${h.steps} nước</small></span><button class="btn btn-ghost btn-sm" data-a="replay" data-k="${esc(h.id)}">🎞️ Xem lại</button></li>`).join('')}</ul></div>`;
+}
+
 export function lobbyRegions() {
   const L = st.S.lobby, host = L.hostId === L.me;
-  return { 'l-ticket': ticketHtml(), 'l-players': playersHtml(), 'l-settings': settingsHtml(host) };
+  return { 'l-ticket': ticketHtml(), 'l-players': playersHtml(), 'l-recent': recentHtml(), 'l-settings': settingsHtml(host) };
 }
 export const lobbySkeleton = () => `<main class="lobby"><header class="lobby-head"><span class="mini-mark">BANG<b>!</b></span><span class="eyebrow">Sảnh chờ</span></header>
-  <div class="lobby-grid"><div class="lobby-side"><div id="l-ticket"></div><div id="l-players"></div></div><div id="l-settings"></div></div></main>`;
+  <div class="lobby-grid"><div class="lobby-side"><div id="l-ticket"></div><div id="l-players"></div><div id="l-recent"></div></div><div id="l-settings"></div></div></main>`;
 
 export const lobbyActions = {
   create: () => homeAct('create'), join: () => homeAct('join'), quick: () => homeAct('quick'),

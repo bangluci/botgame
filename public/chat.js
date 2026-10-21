@@ -3,6 +3,8 @@ import { st, esc, toast, post, rerender } from './store.js';
 
 const KEEP = 50; // giống server: giữ 50 tin gần nhất
 const BUBBLE_MS = 6000, BUBBLE_LEN = 60;
+// Câu nói nhanh trong khay 😀: chạm 1 phát là gửi thành tin chat thường.
+export const QUICK = ['Bắn tao làm gì!', 'Tao là Deputy, tin tao 🤠', 'Ai là Renegade?', 'Bắn Sheriff đi!', 'Cứu tao với 🍺', 'Xin lỗi, bắn nhầm 😅', 'Đợi tí, đang nghĩ…', 'GG 👏'];
 
 export const lastChatId = () => (st.chat.length ? st.chat[st.chat.length - 1].id : 0);
 // Server chỉ gửi tin mới hơn lastChatId(), nên chỉ việc nối vào.
@@ -26,16 +28,22 @@ export function chatHtml() {
     <div class="chat-form"><input id="chat-input" maxlength="200" autocomplete="off" placeholder="Nhắn cả phòng…" value="${esc(st.ui.chatDraft)}" aria-label="Tin nhắn"><button class="btn btn-sm" data-a="chat-send">Gửi</button></div>`;
 }
 
+// Gửi 1 tin; lỗi (gửi nhanh quá, mất mạng…) thì báo, trả về false.
+async function say(text) {
+  try { await post('chat', { text }); return true; } catch (e) { toast(e.message, 'err'); return false; }
+}
 export async function sendChat() {
   const text = st.ui.chatDraft.trim();
   if (!text) return;
-  try {
-    await post('chat', { text });
+  if (await say(text)) {
     st.ui.chatDraft = '';
     const el = document.getElementById('chat-input');
     if (el) el.value = '';
-  } catch (e) { toast(e.message, 'err'); }
+  }
   rerender();
 }
 
-export const chatActions = { 'chat-send': () => sendChat() };
+export const chatActions = {
+  'chat-send': () => sendChat(),
+  say: (el) => { st.ui.modal = null; rerender(); say(QUICK[+el.dataset.k]); },
+};

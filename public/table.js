@@ -1,6 +1,6 @@
 // Bàn chơi: ghế quanh bàn bầu dục, tay bài, banner hành động, nhật ký, các modal.
 import { st, esc, toast, post, act, rerender, clearSel, hooks } from './store.js';
-import { chatHtml, chatBubble, lastChatId, unread } from './chat.js';
+import { chatHtml, chatBubble, lastChatId, unread, QUICK } from './chat.js';
 import { startTour } from './tour.js';
 import { SYM, SUIT_VI, ROLE_VI, ROLE_HINT, ROLE_HINT_3P, G, cardDef, charDef, cardHtml, gearHtml, lifeHtml, roleBadge } from './cards.js';
 
@@ -258,7 +258,8 @@ function infoModal() {
   return `<div class="modal" data-a="close-modal"><div class="sheet info" data-a="noop"><button class="icon-btn close" data-a="close-modal" aria-label="Đóng">✕</button>${body}</div></div>`;
 }
 function emoteModal() {
-  return `<div class="modal light" data-a="close-modal"><div class="sheet emote-tray" data-a="noop">${(st.meta.emotes || []).map((e) => `<button class="emote" data-a="emote" data-k="${esc(e)}">${esc(e)}</button>`).join('')}</div></div>`;
+  return `<div class="modal light" data-a="close-modal"><div class="sheet emote-tray" data-a="noop">${(st.meta.emotes || []).map((e) => `<button class="emote" data-a="emote" data-k="${esc(e)}">${esc(e)}</button>`).join('')}
+    <div class="quick">${QUICK.map((q, i) => `<button class="quick-btn" data-a="say" data-k="${i}">${esc(q)}</button>`).join('')}</div></div></div>`;
 }
 function modalHtml() {
   const g = G(), u = st.ui;

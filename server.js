@@ -15,6 +15,7 @@ const PORT = +process.env.PORT || 3001;
 const PUB = path.join(__dirname, 'public');
 const DATA = process.env.BANG_DATA || path.join(__dirname, 'data', 'rooms.json');
 const MAX_ROOMS = 200;
+const HISTORY_KEEP = 5; // số ván đã xong giữ lại để xem lại
 const MAX_SPECTATORS = 10; // người vào lúc ván đang chạy thì xem, ván sau mới có ghế
 const ROOMS_PER_IP_HOUR = 30;
 const BODY_LIMIT = 2e5;
@@ -57,11 +58,12 @@ const LAN = lanAddrs();
 const newMember = (name, extra) => ({ id: rid(), token: rid(), name: cleanName(name), waiters: new Set(), lastSeen: Date.now(), ...extra });
 function newRoom(code, host) {
   const now = Date.now();
-  return { code, hostId: host.id, members: [host], game: null, gameMembers: null, created: now, lastActivity: now, version: 1, settings: config.sanitize({}), mem: {}, timer: null, emotes: [], chat: [], chatSeq: 0 };
+  return { code, hostId: host.id, members: [host], game: null, gameMembers: null, created: now, lastActivity: now, version: 1, settings: config.sanitize({}), mem: {}, timer: null, emotes: [], chat: [], chatSeq: 0, history: [] };
 }
 function lobbyView(room, me) {
   return {
     code: room.code, started: !!room.game, hostId: room.hostId, me, settings: room.settings, lan: LAN.filter((a) => !a.virtual).map((a) => a.url),
+    history: room.history.map((h) => ({ id: h.id, ended: h.ended, text: h.winner.text, steps: h.actions.length, n: h.members.length })),
     lists: room.game ? null : config.roomLists(room.settings), // lá/nhân vật tự thêm qua "Nâng cao" hiện trong các tab của sảnh
     members: room.members.map((m) => ({ id: m.id, name: m.name, online: isOnline(m), bot: !!m.bot, auto: !!m.left, spectator: !!m.spectator })),
   };
@@ -84,9 +86,18 @@ function snapshot(room, m, haveDefs, haveChat) {
   }
   return { now, lobby: lobbyView(room, m.id), emotes: room.emotes.filter((e) => now - e.t < 6000), chat: room.chat.filter((c) => c.id > haveChat), game };
 }
+// Ván vừa có người thắng: cất vào lịch sử để xem lại. Khoá chống trùng là seed + số action
+// (server khởi động lại lúc ván đã xong thì không cất lần nữa).
+function archive(room) {
+  const g = room.game;
+  if (!g || !g.winner || room.history.some((h) => h.seed === g.seed && h.actions.length === g.actions.length)) return;
+  const h = { id: rid(), ended: Date.now(), members: room.gameMembers, settings: room.settings, seed: g.seed, actions: [...g.actions], winner: { text: g.winner.text, players: g.winner.players } };
+  room.history = [h, ...room.history].slice(0, HISTORY_KEEP);
+}
 function pushAll(room) {
   room.version++;
   room.lastActivity = Date.now();
+  archive(room);
   schedule(room);
   if (room.game) for (const m of room.members) if (m.bot || m.left) ai.observe(engine.viewFor(room.game, m.id), room.mem[m.id] || (room.mem[m.id] = ai.newMemory()));
   for (const m of room.members) for (const w of [...m.waiters]) w();
@@ -131,7 +142,7 @@ function save() {
 function writeRooms() {
   clearTimeout(saveTimer); saveTimer = null;
   const data = [...rooms.values()].map((r) => ({
-    code: r.code, hostId: r.hostId, created: r.created, lastActivity: r.lastActivity, settings: r.settings, chat: r.chat, chatSeq: r.chatSeq,
+    code: r.code, hostId: r.hostId, created: r.created, lastActivity: r.lastActivity, settings: r.settings, chat: r.chat, chatSeq: r.chatSeq, history: r.history,
     members: r.members.map((m) => ({ id: m.id, token: m.token, name: m.name, bot: !!m.bot, left: !!m.left, spectator: !!m.spectator })),
     game: r.game ? { members: r.gameMembers, seed: r.game.seed, actions: r.game.actions } : null,
   }));
@@ -222,6 +233,26 @@ function poll(req, res, url) {
     if (done) return; done = true; clearTimeout(t); m.waiters.delete(finish); m.lastSeen = Date.now();
     setTimeout(() => { if (!isOnline(m) && rooms.get(room.code) === room) pushAll(room); }, 9000);
   });
+}
+
+// Xem lại ván: dựng lại từ seed + `step` action đầu tiên, chụp từ ghế pid, lật vai mọi người.
+// ponytail: dựng lại từ đầu mỗi lần (O(step), khoảng 10 ms với ván 450 bước); nhiều người tua cùng lúc thì cache ván đã dựng theo người xem.
+function replay(res, url) {
+  const q = (k) => url.searchParams.get(k) || '';
+  const { room } = auth({ room: q('room'), token: q('token') });
+  const h = room.history.find((x) => x.id === q('id'));
+  if (!h) throw new Error('Không còn ván này');
+  const total = h.actions.length, want = Math.max(0, Math.min(total, Math.floor(+q('step')) || 0));
+  let g;
+  try { g = engine.newGame(h.members, h.settings, h.seed); } catch (e) { throw new Error('Ván này ghi bằng phiên bản luật cũ, không xem lại được'); }
+  let step = 0, error = null;
+  for (; step < want; step++) {
+    try { engine.apply(g, ...h.actions[step]); } catch (e) { error = `Ván này ghi bằng phiên bản luật cũ, chỉ xem lại được tới bước ${step}`; break; }
+  }
+  const pid = h.members.some((m) => m.id === q('pid')) ? q('pid') : h.members[0].id;
+  const { defs, ...v } = engine.viewFor(g, pid), key = defsKey(g, defs);
+  const view = { ...v, players: v.players.map((p, i) => ({ ...p, role: g.players[i].role })), defsKey: key, ...(q('d') === key ? {} : { defs }), deadline: null };
+  json(res, 200, { total, step, pid, error, view });
 }
 
 function join(b) {
@@ -332,6 +363,7 @@ async function api(req, res, url) {
   try {
     if (req.method === 'GET' && url.pathname === '/api/meta') return json(res, 200, { ...config.describe(), emotes: EMOTES });
     if (req.method === 'GET' && url.pathname === '/api/poll') return poll(req, res, url);
+    if (req.method === 'GET' && url.pathname === '/api/replay') return replay(res, url);
     if (req.method !== 'POST') return json(res, 405, { error: 'Chỉ nhận POST' });
     const b = await body(req);
     if (url.pathname === '/api/create') {

@@ -9,10 +9,12 @@ const nameOf = (id) => { const p = G().players.find((x) => x.id === id); return 
 const mine = () => { const pe = G().pending; return !!(pe && pe.player === meId()); };
 const member = (id) => st.S.lobby.members.find((m) => m.id === id) || {};
 
-// Người ngồi sau mình theo chiều lượt đi trước — đúng thứ tự ghế quanh bàn.
+// Người ngồi sau mình theo chiều lượt đi trước — đúng thứ tự ghế quanh bàn. Người xem (không có ghế): bắt đầu từ Sheriff.
 function seatOrder() {
   const ps = G().players, i = ps.findIndex((p) => p.id === meId());
-  return i < 0 ? ps : [...ps.slice(i + 1), ...ps.slice(0, i)];
+  if (i >= 0) return [...ps.slice(i + 1), ...ps.slice(0, i)];
+  const sh = Math.max(0, ps.findIndex((p) => p.role === 'sheriff'));
+  return [...ps.slice(sh), ...ps.slice(0, sh)];
 }
 const handCard = (id) => G().me.hand.find((c) => c.id === id);
 const playInfo = (id) => (G().me.playable || {})[id] || null;
@@ -78,7 +80,9 @@ function centerHtml() {
 }
 
 function mebarHtml() {
-  const g = G(), me = meP(), ch = charDef(me.char), m = g.me;
+  const g = G(), me = meP();
+  if (!me) return '<div class="mebar spectator"><span class="me-avatar" aria-hidden="true">👀</span><div class="me-who"><b>Bạn đang xem ván này</b><span class="me-skill">Ván sau bạn được chia bài. Chỉ thấy những gì cả bàn cùng thấy — cứ chat thoải mái.</span></div></div>';
+  const ch = charDef(me.char), m = g.me;
   const bub = bubbleOf(me.id);
   return `<div class="mebar ${g.turn === me.id ? 'turn' : ''} ${me.alive ? '' : 'dead'}" data-seat="${esc(me.id)}">
     <button class="me-avatar" data-a="info-char" data-key="${esc(me.char || '')}" aria-label="Xem kỹ năng nhân vật">${esc(ch ? ch.icon : '🂠')}</button>
@@ -174,6 +178,7 @@ function usable(c) {
   return null;
 }
 function handHtml() {
+  if (!G().me) return ''; // người xem không có tay bài
   const hand = G().me.hand, n = hand.length;
   if (!n) return '<p class="empty-hand">Hết bài trên tay</p>';
   return hand.map((c, i) => {
@@ -271,7 +276,7 @@ function topbarHtml() {
   return `<span class="mini-mark">BANG<b>!</b></span><span class="tchip"><span class="wide-only">Phòng </span><b>${esc(L.code)}</b></span><span class="tchip"><span class="wide-only">Vòng </span><b>${g.round || 1}</b></span>
     ${g.event ? `<button class="tchip ev" data-a="info-event">${esc(g.event.icon || '🎴')} ${esc(g.event.name)}</button>` : ''}
     <span class="spacer"></span>
-    <button class="icon-btn" data-a="emote-open" aria-label="Gửi biểu cảm">😀</button>
+    ${meP() ? '<button class="icon-btn" data-a="emote-open" aria-label="Gửi biểu cảm">😀</button>' : ''}
     <button class="icon-btn" data-a="help" aria-label="Luật nhanh">❓</button>
     <button class="icon-btn" data-a="sound" aria-label="${st.ui.sound ? 'Tắt' : 'Bật'} âm thanh">${st.ui.sound ? '🔔' : '🔕'}</button>
     <button class="icon-btn only-narrow" data-a="log-toggle" aria-label="Nhật ký và chat">📜${unread() ? '<i class="dot"></i>' : ''}</button>
@@ -394,5 +399,5 @@ export const tableActions = {
   tolobby: () => post('lobby').catch((e) => toast(e.message, 'err')),
   cancel: () => { if (confirm('Huỷ ván đang chơi và đưa mọi người về sảnh?')) post('lobby').catch((e) => toast(e.message, 'err')); },
   takeover: (el) => { st.ui.modal = null; post('kick', { id: el.dataset.id }).then(() => toast('Máy sẽ chơi thay người này')).catch((e) => toast(e.message, 'err')); },
-  quit: () => { if (confirm('Rời ván? Máy sẽ chơi thay bạn tới hết ván. Muốn quay lại thì vào phòng bằng đúng tên cũ.')) post('leave').catch(() => {}).finally(() => hooks.leaveLocal()); },
+  quit: () => { if (!meP() || confirm('Rời ván? Máy sẽ chơi thay bạn tới hết ván. Muốn quay lại thì vào phòng bằng đúng tên cũ.')) post('leave').catch(() => {}).finally(() => hooks.leaveLocal()); },
 };

@@ -98,13 +98,13 @@ function ticketHtml() {
 function playersHtml() {
   st.ui.chatSeen = lastChatId(); // sảnh luôn hiện khung chat: tin ở đây coi như đã đọc
   const L = st.S.lobby, host = L.hostId === L.me, max = st.meta.maxPlayers, min = st.meta.minPlayers;
-  const n = L.members.length;
+  const n = L.members.filter((m) => !m.spectator).length; // người xem không chiếm ghế
   return `<div class="panel players">
     <div class="panel-head"><h2>Tay súng <small>${n}/${max}</small></h2>${host && n < max ? '<button class="btn btn-ghost btn-sm" data-a="addbot">＋ Thêm bot</button>' : ''}</div>
     <ul class="member-list">${L.members.map((m, i) => `<li class="member ${m.online ? 'on' : ''}" style="--i:${i}">
       <span class="avatar ${m.bot ? 'bot' : ''}">${m.bot ? '🤖' : initials(m.name)}</span>
       <span class="m-name">${esc(m.name)}${m.id === L.hostId ? ' <span class="crown" title="Chủ phòng">👑</span>' : ''}${m.id === L.me ? ' <span class="you">bạn</span>' : ''}</span>
-      <span class="m-state">${m.bot ? 'máy' : m.online ? 'online' : 'offline'}</span>
+      <span class="m-state">${m.spectator ? '👀 xem' : m.bot ? 'máy' : m.online ? 'online' : 'offline'}</span>
       ${host && m.id !== L.me ? `<button class="icon-btn" data-a="kick" data-id="${esc(m.id)}" aria-label="Mời ${esc(m.name)} ra">✕</button>` : ''}
     </li>`).join('')}</ul>
     ${host ? `<button class="btn btn-primary btn-wide" data-a="start" ${n < min ? 'disabled' : ''}><span>${n < min ? `Cần ít nhất ${min} người` : 'Chia bài — bắt đầu ván'}</span><i aria-hidden="true">→</i></button>`

@@ -15,6 +15,7 @@ const PORT = +process.env.PORT || 3001;
 const PUB = path.join(__dirname, 'public');
 const DATA = process.env.BANG_DATA || path.join(__dirname, 'data', 'rooms.json');
 const MAX_ROOMS = 200;
+const MAX_SPECTATORS = 10; // người vào lúc ván đang chạy thì xem, ván sau mới có ghế
 const ROOMS_PER_IP_HOUR = 30;
 const BODY_LIMIT = 2e5;
 const BOT_DELAY = process.env.BOT_DELAY_MS ? [+process.env.BOT_DELAY_MS, +process.env.BOT_DELAY_MS] : [700, 1400]; // bot "nghĩ" một chút để người xem kịp theo dõi
@@ -40,6 +41,7 @@ function roomCode() {
 const cleanName = (n) => String(n || '').replace(/[<>"'&`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16) || 'Người chơi';
 const isOnline = (m) => !!m.bot || m.waiters.size > 0 || Date.now() - m.lastSeen < 8000;
 const maxPlayers = () => config.describe().maxPlayers;
+const players = (room) => room.members.filter((x) => !x.spectator); // người có ghế (không tính người xem)
 
 // Địa chỉ cho bạn bè cùng mạng; adapter ảo (VPN, WSL, Hyper-V…) xếp cuối vì bạn bè thường không vào được.
 const VIRTUAL = /vEthernet|VirtualBox|VMware|WSL|Hyper-V|Radmin|Hamachi|ZeroTier|Tailscale|vpn|Loopback/i;
@@ -61,7 +63,7 @@ function lobbyView(room, me) {
   return {
     code: room.code, started: !!room.game, hostId: room.hostId, me, settings: room.settings, lan: LAN.filter((a) => !a.virtual).map((a) => a.url),
     lists: room.game ? null : config.roomLists(room.settings), // lá/nhân vật tự thêm qua "Nâng cao" hiện trong các tab của sảnh
-    members: room.members.map((m) => ({ id: m.id, name: m.name, online: isOnline(m), bot: !!m.bot, auto: !!m.left })),
+    members: room.members.map((m) => ({ id: m.id, name: m.name, online: isOnline(m), bot: !!m.bot, auto: !!m.left, spectator: !!m.spectator })),
   };
 }
 // defs (định nghĩa lá/nhân vật của ván) chiếm ~70% mỗi ảnh chụp mà không đổi suốt ván: client gửi lại khoá
@@ -130,7 +132,7 @@ function writeRooms() {
   clearTimeout(saveTimer); saveTimer = null;
   const data = [...rooms.values()].map((r) => ({
     code: r.code, hostId: r.hostId, created: r.created, lastActivity: r.lastActivity, settings: r.settings, chat: r.chat, chatSeq: r.chatSeq,
-    members: r.members.map((m) => ({ id: m.id, token: m.token, name: m.name, bot: !!m.bot, left: !!m.left })),
+    members: r.members.map((m) => ({ id: m.id, token: m.token, name: m.name, bot: !!m.bot, left: !!m.left, spectator: !!m.spectator })),
     game: r.game ? { members: r.gameMembers, seed: r.game.seed, actions: r.game.actions } : null,
   }));
   try {
@@ -197,7 +199,11 @@ function limitIp(req) {
   if (list.length >= ROOMS_PER_IP_HOUR) throw new Error('Tạo phòng quá nhiều, thử lại sau ít phút');
   created.set(ip, [...list, now]);
 }
-function firstHuman(room, except) { return room.members.find((x) => !x.bot && !x.left && x !== except && isOnline(x)) || room.members.find((x) => !x.bot && x !== except); }
+// Người nhận quyền chủ phòng: ưu tiên người chơi online, rồi người xem online, rồi bất kỳ ai không phải bot.
+function firstHuman(room, except) {
+  const ok = (x) => !x.bot && !x.left && x !== except && isOnline(x);
+  return room.members.find((x) => ok(x) && !x.spectator) || room.members.find(ok) || room.members.find((x) => !x.bot && x !== except);
+}
 
 function poll(req, res, url) {
   const { room, m } = auth({ room: url.searchParams.get('room'), token: url.searchParams.get('token') });
@@ -229,8 +235,13 @@ function join(b) {
     same.left = false; same.lastSeen = Date.now();
     return { room, m: same };
   }
-  if (room.game) throw new Error('Phòng đang chơi — chỉ vào lại được bằng đúng tên cũ của bạn');
-  if (room.members.length >= maxPlayers()) throw new Error('Phòng đã đầy');
+  if (room.game) { // ván đang chạy: vào xem, ván sau mới có ghế
+    if (room.members.filter((x) => x.spectator).length >= MAX_SPECTATORS) throw new Error('Phòng đã đủ người xem');
+    const m = newMember(name, { spectator: true });
+    room.members.push(m);
+    return { room, m };
+  }
+  if (players(room).length >= maxPlayers()) throw new Error('Phòng đã đầy');
   const m = newMember(name);
   room.members.push(m);
   return { room, m };
@@ -251,14 +262,15 @@ function command(p, b, room, m) {
     case '/api/start': {
       host(); lobbyOnly();
       const min = config.describe().minPlayers;
-      if (room.members.length < min) throw new Error(`Cần ít nhất ${min} người — bấm "Thêm bot" nếu thiếu`);
-      room.gameMembers = room.members.map((x) => ({ id: x.id, name: x.name }));
+      if (players(room).length < min) throw new Error(`Cần ít nhất ${min} người — bấm "Thêm bot" nếu thiếu`);
+      room.gameMembers = players(room).map((x) => ({ id: x.id, name: x.name }));
       room.game = engine.newGame(room.gameMembers, room.settings);
       room.mem = {};
       break;
     }
     case '/api/action':
       if (!room.game) throw new Error('Chưa bắt đầu');
+      if (m.spectator) throw new Error('Bạn đang xem — ván sau mới có ghế');
       m.left = false;
       engine.apply(room.game, m.id, b.action || {});
       break;
@@ -267,17 +279,19 @@ function command(p, b, room, m) {
       if (!room.game.winner) host();
       room.game = null; room.gameMembers = null;
       room.members = room.members.filter((x) => !x.left);
+      for (let free = maxPlayers() - players(room).length, i = 0; i < room.members.length && free > 0; i++) // người xem lên ghế theo thứ tự vào phòng
+        if (room.members[i].spectator) { room.members[i].spectator = false; free--; }
       if (!room.members.some((x) => x.id === room.hostId)) room.hostId = (firstHuman(room) || room.members[0]).id;
       break;
     case '/api/leave':
-      if (room.game) m.left = true; // đang chơi: máy chơi thay tới hết ván
+      if (room.game && !m.spectator) m.left = true; // đang chơi: máy chơi thay tới hết ván
       else room.members = room.members.filter((x) => x !== m);
       if (!room.members.some((x) => !x.bot && !x.left)) { rooms.delete(room.code); save(); return false; }
       if (room.hostId === m.id) room.hostId = firstHuman(room, m).id;
       break;
     case '/api/addbot': {
       host(); lobbyOnly();
-      if (room.members.length >= maxPlayers()) throw new Error('Phòng đã đầy');
+      if (players(room).length >= maxPlayers()) throw new Error('Phòng đã đầy');
       const used = new Set(room.members.map((x) => x.name));
       const nm = BOT_NAMES.map((n) => `🤖 ${n}`).find((n) => !used.has(n)) || `🤖 Bot ${room.members.length}`;
       room.members.push(newMember('', { name: nm, bot: true }));
@@ -287,7 +301,7 @@ function command(p, b, room, m) {
       host();
       const t = room.members.find((x) => x.id === b.id);
       if (!t || t === m) throw new Error('Không mời ra được người này');
-      if (room.game) t.left = true;
+      if (room.game && !t.spectator) t.left = true;
       else room.members = room.members.filter((x) => x !== t);
       break;
     }
@@ -387,8 +401,8 @@ setInterval(() => {
     if ((!r.game && idle > 3600e3 && !humans.some(isOnline)) || idle > 12 * 3600e3) { rooms.delete(c); save(); continue; }
     const host = r.members.find((m) => m.id === r.hostId);
     if (host && !isOnline(host) && now - host.lastSeen > HOST_HANDOVER) {
-      const next = humans.find((m) => m !== host && !m.left && isOnline(m));
-      if (next) { r.hostId = next.id; pushAll(r); }
+      const next = firstHuman(r, host);
+      if (next && isOnline(next)) { r.hostId = next.id; pushAll(r); }
     }
     schedule(r);
   }

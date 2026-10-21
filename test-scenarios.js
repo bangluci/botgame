@@ -400,6 +400,15 @@ test('Luật 3 người Dodge City: vai lật ngửa, Deputy đi trước, tự 
   assert.equal(d2.hand.length, h + 3, 'hạ ai cũng rút 3 (bốc 1 BANG!, chơi đi, được thưởng 3)');
 });
 
+// ---------- người xem ----------
+test('Ảnh chụp không ghế chỉ có thông tin công khai', () => {
+  const g = engine.newGame(members(5), {}, 11);
+  const v = engine.viewFor(g, 'người-ngoài');
+  assert.equal(v.me, null);
+  assert.ok(v.players.every((p) => typeof p.hand === 'number' && p.dist === null), 'tay bài chỉ là số lá, không có khoảng cách');
+  assert.deepEqual(v.players.filter((p) => p.role).map((p) => p.role), ['sheriff'], 'chỉ lộ vai Sheriff');
+});
+
 // ---------- registry khối dựng sẵn ----------
 test('Khối dựng sẵn khai trong config.js khớp với code engine (thêm kỹ năng mà quên khai/quên code thì lỗi)', () => {
   const src = ['engine.js', 'rules.js', 'combat.js', 'abilities.js'].map((f) => require('fs').readFileSync(require('path').join(__dirname, f), 'utf8')).join('\n');

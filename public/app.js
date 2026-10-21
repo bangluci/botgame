@@ -5,6 +5,7 @@ import { gameSkeleton, gameRegions, tableActions } from './table.js';
 import { sync, unlockAudio } from './effects.js';
 import { mergeChat, lastChatId, sendChat, chatActions } from './chat.js';
 import { replayBar, replayBanner, replayActions, replayChange } from './replay.js';
+import { maybeStartTour } from './tour.js';
 
 const $app = document.getElementById('app');
 let loopId = 0;
@@ -126,6 +127,7 @@ function render() {
   } else if (S.lobby.started && S.game) { screen('game', gameSkeleton()); for (const [id, html] of Object.entries(gameRegions())) patch(id, html); }
   else { screen('lobby', lobbySkeleton()); for (const [id, html] of Object.entries(lobbyRegions())) patch(id, html); }
   restoreFocus(f);
+  maybeStartTour();
 }
 onRender(render);
 

@@ -373,3 +373,12 @@
 .rp-range { flex: 1 1 140px; min-width: 100px; accent-color: var(--stamp); }
 .rp-seat { flex: 0 1 200px; min-width: 0; padding: 5px 8px; font: 700 13px var(--font-label); }
 .b-text .warn { color: var(--stamp); font-style: italic; }
+
+/* ---------- hướng dẫn chỉ tay (lớp phủ ngoài #app) ---------- */
+.tour { position: fixed; inset: 0; z-index: 90; }
+.tour-spot { position: fixed; border: 2px dashed var(--paper-hi); box-shadow: 0 0 0 200vmax rgba(24, 16, 8, .62); pointer-events: none; transition: all .3s var(--ease); }
+.tour-tip { position: fixed; display: grid; gap: 6px; padding: 14px 16px 12px; background: var(--paper-hi); border: 2px solid var(--ink); box-shadow: 5px 6px 0 rgba(31, 26, 20, .35); animation: rise .35s var(--spring) backwards; }
+.tour-tip b { font: 400 18px var(--font-display); text-transform: uppercase; letter-spacing: .04em; }
+.tour-tip p { margin: 0; font: 400 15px/1.45 var(--font-ui); color: var(--ink-2); }
+.tour-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.tour-row small { flex: 1; color: var(--ink-3); font: 700 13px var(--font-label); }

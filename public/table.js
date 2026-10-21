@@ -1,6 +1,7 @@
 // Bàn chơi: ghế quanh bàn bầu dục, tay bài, banner hành động, nhật ký, các modal.
 import { st, esc, toast, post, act, rerender, clearSel, hooks } from './store.js';
 import { chatHtml, chatBubble, lastChatId, unread } from './chat.js';
+import { startTour } from './tour.js';
 import { SYM, SUIT_VI, ROLE_VI, ROLE_HINT, ROLE_HINT_3P, G, cardDef, charDef, cardHtml, gearHtml, lifeHtml, roleBadge } from './cards.js';
 
 const meId = () => (st.replay ? st.replay.pid : st.S.lobby.me); // xem lại: ghế đang chọn
@@ -230,6 +231,7 @@ function pickModal() {
 function helpModal() {
   const g = G();
   return `<div class="modal" data-a="close-modal"><div class="sheet help" data-a="noop"><div class="row between"><h2>Luật nhanh</h2><button class="icon-btn" data-a="close-modal" aria-label="Đóng">✕</button></div>
+    ${G().me ? '<p><button class="btn btn-ghost btn-sm" data-a="tour">👉 Xem hướng dẫn trên bàn</button></p>' : ''}
     <ol class="help-steps"><li><b>Đầu lượt</b> — xử lý Dynamite (rút! ra ♠2–9 thì nổ, mất 3 máu), rồi Jail (rút! ra ♥ mới thoát), rồi rút 2 lá.</li>
       <li><b>Chơi bài</b> — bao nhiêu lá cũng được, nhưng chỉ <b>1 BANG!</b> mỗi lượt (trừ Volcanic / Willy the Kid). Mỗi loại trang bị chỉ giữ 1 lá, súng mới thay súng cũ.</li>
       <li><b>Cuối lượt</b> — bỏ bớt bài cho bằng số máu hiện có.</li>
@@ -389,6 +391,7 @@ export const tableActions = {
   'close-modal': () => { st.ui.modal = null; st.ui.zone = null; rerender(); },
   noop: () => {},
   help: () => { st.ui.modal = 'help'; rerender(); },
+  tour: () => { st.ui.modal = null; rerender(); startTour(); },
   'emote-open': () => { st.ui.modal = 'emote'; rerender(); },
   emote: (el) => { st.ui.modal = null; rerender(); post('emote', { emoji: el.dataset.k }).catch((e) => toast(e.message)); },
   sound: () => { st.ui.sound = !st.ui.sound; try { localStorage.setItem('bang-sound', st.ui.sound ? 'on' : 'off'); } catch (e) { /* trình duyệt chặn lưu thì thôi */ } rerender(); },
